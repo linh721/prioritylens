@@ -1,0 +1,258 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0">Backlog ưu tiên</h2>
+        <p class="text-muted mb-0">Tính năng được xếp hạng theo điểm RICE</p>
+    </div>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addFeatureModal">
+        + Thêm tính năng
+    </button>
+</div>
+
+<!-- Tab filter -->
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+        <a class="nav-link {% if status_filter=='backlog' %}active{% endif %}"
+           href="/backlog?status=backlog">
+            Backlog <span class="badge bg-warning text-dark">{{ all_status_count.backlog }}</span>
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if status_filter=='approved' %}active{% endif %}"
+           href="/backlog?status=approved">
+            Đã duyệt <span class="badge bg-success">{{ all_status_count.approved }}</span>
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if status_filter=='rejected' %}active{% endif %}"
+           href="/backlog?status=rejected">
+            Từ chối <span class="badge bg-danger">{{ all_status_count.rejected }}</span>
+        </a>
+    </li>
+</ul>
+
+<!-- Danh sách tính năng -->
+{% if features %}
+{% for feature in features %}
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body">
+        <div class="row align-items-center">
+            <div class="col-md-5">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-primary fs-6">{{ feature.rice_score }}</span>
+                    <div>
+                        <strong>{{ feature.name }}</strong>
+                        {% if feature.confidence < 50 %}
+                        <span class="badge bg-warning text-dark ms-1">⚠️ Confidence thấp</span>
+                        {% endif %}
+                        <div class="text-muted small">{{ feature.description or 'Chưa có mô tả' }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="row text-center">
+                    <div class="col-3">
+                        <div class="text-muted small">Reach</div>
+                        <strong>{{ feature.reach }}</strong>
+                    </div>
+                    <div class="col-3">
+                        <div class="text-muted small">Impact</div>
+                        <strong>{{ feature.impact }}</strong>
+                    </div>
+                    <div class="col-3">
+                        <div class="text-muted small">Confidence</div>
+                        <strong>{{ feature.confidence }}%</strong>
+                    </div>
+                    <div class="col-3">
+                        <div class="text-muted small">Effort</div>
+                        <strong>{{ feature.effort }}w</strong>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 text-end">
+                {% if status_filter == 'backlog' %}
+                <button class="btn btn-sm btn-outline-secondary me-1"
+                    onclick="suggestRICE({{ feature.id }}, '{{ feature.name }}')">
+                    🤖 Gợi ý
+                </button>
+                <button class="btn btn-sm btn-success me-1"
+                    onclick="showDecision({{ feature.id }}, 'approved', '{{ feature.name }}')">
+                    Duyệt
+                </button>
+                <button class="btn btn-sm btn-danger"
+                    onclick="showDecision({{ feature.id }}, 'rejected', '{{ feature.name }}')">
+                    Từ chối
+                </button>
+                {% endif %}
+                {% if feature.decision_reason %}
+                <div class="text-muted small mt-1">💬 {{ feature.decision_reason[:50] }}...</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% else %}
+<div class="text-center py-5 text-muted">
+    <p>Chưa có tính năng nào ở trạng thái này.</p>
+</div>
+{% endif %}
+
+<!-- Modal thêm tính năng -->
+<div class="modal fade" id="addFeatureModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Thêm tính năng mới</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="/feature/add">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Tên tính năng *</label>
+                        <input type="text" name="name" class="form-control" required
+                            placeholder="VD: Tối ưu luồng xác nhận đơn hàng">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Mô tả</label>
+                        <textarea name="description" class="form-control" rows="2"
+                            placeholder="Mô tả ngắn gọn vấn đề cần giải quyết"></textarea>
+                    </div>
+                    <hr>
+                    <p class="text-muted small">Nhập các giá trị RICE. Công thức: Điểm = (Reach × Impact × Confidence%) ÷ Effort</p>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Reach — Số người dùng ảnh hưởng/tháng</label>
+                            <input type="number" name="reach" class="form-control"
+                                min="0" step="100" placeholder="VD: 5000" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Impact — Mức độ tác động (1–5)</label>
+                            <select name="impact" class="form-select" required>
+                                <option value="">Chọn mức độ</option>
+                                <option value="1">1 — Rất thấp</option>
+                                <option value="2">2 — Thấp</option>
+                                <option value="3">3 — Trung bình</option>
+                                <option value="4">4 — Cao</option>
+                                <option value="5">5 — Rất cao</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Confidence — Độ tin cậy (0–100%)</label>
+                            <input type="number" name="confidence" class="form-control"
+                                min="0" max="100" placeholder="VD: 80">
+                            <div class="form-text text-warning">⚠️ Nếu < 50% hệ thống sẽ cảnh báo chưa đủ dữ liệu</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Effort — Số tuần phát triển</label>
+                            <input type="number" name="effort" class="form-control"
+                                min="0.5" step="0.5" placeholder="VD: 2">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary">Thêm và tính điểm RICE</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal quyết định -->
+<div class="modal fade" id="decisionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="decisionTitle">Ra quyết định</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" id="decisionForm">
+                <input type="hidden" name="decision" id="decisionType">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Lý do quyết định <span class="text-danger">*</span></label>
+                        <textarea name="reason" class="form-control" rows="3" required
+                            placeholder="Ghi lý do để truy xuất sau này (bắt buộc)..."></textarea>
+                        <div class="form-text">Theo US22: Mọi quyết định phải có lý do được ghi lại.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary" id="decisionBtn">Xác nhận</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal gợi ý RICE -->
+<div class="modal fade" id="suggestModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">🤖 Gemini gợi ý điểm RICE</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="suggestContent">
+                <div class="text-center py-3">
+                    <div class="spinner-border text-primary"></div>
+                    <p class="mt-2">Đang phân tích...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showDecision(featureId, decision, featureName) {
+    document.getElementById('decisionTitle').textContent =
+        decision === 'approved' ? `✅ Phê duyệt: ${featureName}` : `❌ Từ chối: ${featureName}`;
+    document.getElementById('decisionType').value = decision;
+    document.getElementById('decisionForm').action = `/feature/${featureId}/decision`;
+    document.getElementById('decisionBtn').className =
+        decision === 'approved' ? 'btn btn-success' : 'btn btn-danger';
+    document.getElementById('decisionBtn').textContent =
+        decision === 'approved' ? 'Phê duyệt' : 'Từ chối';
+    new bootstrap.Modal(document.getElementById('decisionModal')).show();
+}
+
+function suggestRICE(featureId, featureName) {
+    document.getElementById('suggestContent').innerHTML = `
+        <div class="text-center py-3">
+            <div class="spinner-border text-primary"></div>
+            <p class="mt-2">Gemini đang phân tích phản hồi liên quan...</p>
+        </div>`;
+    new bootstrap.Modal(document.getElementById('suggestModal')).show();
+
+    fetch(`/feature/${featureId}/suggest`, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                const s = data.suggestion;
+                document.getElementById('suggestContent').innerHTML = `
+                    <div class="alert alert-info">${s.reasoning}</div>
+                    <table class="table">
+                        <tr><td>Reach</td><td><strong>${s.reach}</strong></td></tr>
+                        <tr><td>Impact</td><td><strong>${s.impact}/5</strong></td></tr>
+                        <tr><td>Confidence</td><td><strong>${s.confidence}%</strong></td></tr>
+                        <tr><td>Effort</td><td><strong>${s.effort} tuần</strong></td></tr>
+                        <tr><td>Điểm RICE ước tính</td>
+                            <td><strong class="text-primary fs-5">
+                                ${Math.round((s.reach * s.impact * s.confidence/100) / s.effort * 100)/100}
+                            </strong></td>
+                        </tr>
+                    </table>
+                    <p class="text-muted small">Đây là gợi ý của AI. PO cần xem xét và điều chỉnh trước khi áp dụng.</p>`;
+            } else {
+                document.getElementById('suggestContent').innerHTML =
+                    `<div class="alert alert-danger">Lỗi: ${data.message}</div>`;
+            }
+        });
+}
+</script>
+{% endblock %}

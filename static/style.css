@@ -1,0 +1,7 @@
+body { font-size: 0.92rem; }
+.navbar-brand { letter-spacing: 0.5px; }
+.card { border-radius: 10px; }
+.table td { vertical-align: middle; }
+.badge { font-weight: 500; }
+.nav-tabs .nav-link { color: #495057; }
+.nav-tabs .nav-link.active { font-weight: 600; }

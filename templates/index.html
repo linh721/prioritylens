@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0">Dashboard tổng quan</h2>
+        <p class="text-muted mb-0">Hệ thống hỗ trợ ra quyết định ưu tiên tính năng</p>
+    </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body py-4">
+                <h1 class="display-5 fw-bold text-primary">{{ total_feedback }}</h1>
+                <p class="text-muted mb-0">Phản hồi thu thập</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body py-4">
+                <h1 class="display-5 fw-bold text-warning">{{ pending }}</h1>
+                <p class="text-muted mb-0">Chờ ưu tiên</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body py-4">
+                <h1 class="display-5 fw-bold text-success">{{ approved }}</h1>
+                <p class="text-muted mb-0">Đã phê duyệt</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body py-4">
+                <h1 class="display-5 fw-bold text-danger">{{ rejected }}</h1>
+                <p class="text-muted mb-0">Đã từ chối</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Top Features -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white fw-bold">🏆 Top tính năng ưu tiên cao nhất</div>
+    <div class="card-body p-0">
+        {% if top_features %}
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th>
+                    <th>Tính năng</th>
+                    <th>Reach</th>
+                    <th>Impact</th>
+                    <th>Confidence</th>
+                    <th>Effort</th>
+                    <th>Điểm RICE</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in top_features %}
+                <tr>
+                    <td class="text-muted">{{ loop.index }}</td>
+                    <td><strong>{{ f.name }}</strong></td>
+                    <td>{{ f.reach }}</td>
+                    <td>{{ f.impact }}</td>
+                    <td>{{ f.confidence }}%</td>
+                    <td>{{ f.effort }} tuần</td>
+                    <td><span class="badge bg-primary fs-6">{{ f.rice_score }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <p>Chưa có tính năng nào trong backlog.</p>
+            <a href="/backlog" class="btn btn-primary">Thêm tính năng đầu tiên</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h5>📥 Bước tiếp theo</h5>
+                <p class="text-muted">Thu thập phản hồi từ merchant và người dùng, sau đó để AI phân tích và gom nhóm.</p>
+                <a href="/feedback" class="btn btn-outline-primary">Quản lý phản hồi →</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h5>📊 Ưu tiên tính năng</h5>
+                <p class="text-muted">Xem backlog được xếp hạng theo điểm RICE và ra quyết định Approve / Reject.</p>
+                <a href="/backlog" class="btn btn-outline-dark">Xem Backlog →</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
