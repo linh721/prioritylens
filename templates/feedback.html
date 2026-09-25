@@ -71,6 +71,33 @@
                 </tr>
             </thead>
             <tbody>
+                {% for fb in feedbacks %}
+                <tr>
+                    <td class="small">{{ fb.content }}</td>
+                    <td>
+                        <span class="badge bg-opacity-25 {% if fb.source == 'merchant' %}bg-primary text-primary{% elif fb.source == 'user' %}bg-success text-success{% else %}bg-danger text-danger{% endif %}">
+                            {{ fb.source }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if fb.sentiment == 'positive' %}
+                            <span class="badge bg-success">Tích cực</span>
+                        {% elif fb.sentiment == 'negative' %}
+                            <span class="badge bg-danger">Tiêu cực</span>
+                        {% elif fb.sentiment == 'neutral' %}
+                            <span class="badge bg-secondary">Trung tính</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">Chưa phân tích</span>
+                        {% endif %}
+                    </td>
+                    <td><span class="text-primary fw-medium small">{{ fb.topic or '—' }}</span></td>
+                    <td class="text-muted small">{{ fb.created_at.strftime('%d/%m/%Y') }}</td>
+                    <td>
+                        <form action="/feedback/delete/{{ fb.id }}" method="POST" onsubmit="return confirm('Xóa phản hồi này?')">
+                            <button type="submit" class="btn btn-sm btn-link text-danger p-0">Xóa</button>
+                        </form>
+                    </td>
+                </tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -79,6 +106,7 @@
         {% endif %}
     </div>
 </div>
+
 
 <!-- Modal Add Single Feedback -->
 <div class="modal fade" id="modalAddFeedback" tabindex="-1">
