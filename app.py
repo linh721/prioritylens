@@ -2,7 +2,7 @@ import os
 import json
 import csv
 import io
-from flask import Flask, render_template, request, redirect, url_for, jsonify, flash
+from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, make_response
 from dotenv import load_dotenv
 from google import genai
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
@@ -70,8 +70,10 @@ def index():
     rejected = Feature.query.filter_by(status='rejected').count()
     pending = Feature.query.filter_by(status='backlog').count()
 
+    # Thay dòng cũ bằng dòng này (Xếp theo RICE giảm dần, nếu bằng điểm thì xếp theo Effort tăng dần, rồi đến Confidence giảm dần)
     top_features = Feature.query.filter_by(status='backlog')\
-        .order_by(Feature.rice_score.desc()).limit(5).all()
+        .order_by(Feature.rice_score.desc(), Feature.effort.asc(), Feature.confidence.desc()).limit(5).all()
+
 
     return render_template('index.html',
         total_feedback=total_feedback,
@@ -202,8 +204,12 @@ def import_feedback():
 @login_required 
 def backlog():
     status_filter = request.args.get('status', 'backlog')
+    
+    # ─── ĐÂY LÀ DÒNG QUAN TRỌNG BỊ THIẾU HOẶC SAI TÊN BIẾN ───
+    # Lấy danh sách tính năng theo bộ lọc trạng thái và áp dụng quy tắc BR6 (Xếp hạng đa tầng)
     features = Feature.query.filter_by(status=status_filter)\
-        .order_by(Feature.rice_score.desc()).all()
+        .order_by(Feature.rice_score.desc(), Feature.effort.asc(), Feature.confidence.desc()).all()
+        
     all_status_count = {
         'backlog': Feature.query.filter_by(status='backlog').count(),
         'approved': Feature.query.filter_by(status='approved').count(),
@@ -273,7 +279,14 @@ def feature_decision(id):
             feature.impact = float(request.form.get('impact', feature.impact))
             feature.confidence = float(request.form.get('confidence', feature.confidence))
             feature.effort = float(request.form.get('effort', feature.effort))
-            feature.calculate_rice()
+            
+            # Khối chặn điểm RICE theo quy tắc BR3 của tài liệu PRD
+            if feature.confidence >= 50:
+                feature.calculate_rice()
+            else:
+                feature.rice_score = 0  
+                flash(f'⚠️ Điểm RICE được đưa về 0 do Confidence thấp hơn 50%', 'warning')
+                
             feature.status = 'backlog'
         except ValueError:
             flash('Giá trị điều chỉnh không hợp lệ', 'danger')
@@ -281,12 +294,29 @@ def feature_decision(id):
     else:
         feature.status = decision
 
+    # GIỮ NGUYÊN ĐOẠN NÀY CỦA BẠN:
     feature.decision_reason = reason
     db.session.commit()
 
     labels = {'approved': 'Phê duyệt', 'rejected': 'Từ chối', 'adjust': 'Điều chỉnh'}
     flash(f'Đã {labels.get(decision, decision)} tính năng "{feature.name}"', 'success')
     return redirect(url_for('backlog'))
+
+@app.route('/feature/<int:id>/status', methods=['POST'])
+@login_required
+def update_feature_status(id):
+    """US27: Cập nhật trạng thái tính năng từ Approved sang In Progress hoặc Done"""
+    feature = Feature.query.get_or_404(id)
+    new_status = request.form.get('status')
+    
+    if new_status in ['in_progress', 'done', 'approved']:
+        feature.status = new_status
+        db.session.commit()
+        flash(f'Đã cập nhật trạng thái tính năng "{feature.name}" sang thành công!', 'success')
+    else:
+        flash('Trạng thái không hợp lệ', 'danger')
+        
+    return redirect(url_for('backlog', status=request.form.get('current_filter', 'approved')))
 
 @app.route('/feature/<int:id>/suggest', methods=['POST'])
 @login_required
@@ -383,6 +413,42 @@ def chart_data():
             'colors': ['#0d6efd', '#198754', '#dc3545']
         }
     })
+
+@app.route('/backlog/export-csv')
+@login_required
+def export_backlog_csv():
+    """US26: Xuất danh sách tính năng đã phê duyệt ra file CSV"""
+    # Lấy các tính năng đã được Approve hoặc đang làm
+    features = Feature.query.filter(Feature.status.in_(['approved', 'in_progress', 'done'])).order_by(Feature.rice_score.desc()).all()
+    
+    # Tạo luồng dữ liệu file trong bộ nhớ
+    si = io.StringIO()
+    cw = csv.writer(si)
+    
+    # Ghi dòng tiêu đề (Header)
+    cw.writerow(['ID', 'Tên tính năng', 'Mô tả', 'Reach', 'Impact', 'Confidence', 'Effort', 'Điểm RICE', 'Trạng thái'])
+    
+    # Ghi dữ liệu
+    for f in features:
+        cw.writerow([f.id, f.name, f.description, f.reach, f.impact, f.confidence, f.effort, f.rice_score, f.status])
+        
+    output = make_response(si.getvalue())
+    output.headers["Content-Disposition"] = "attachment; filename=sprint_backlog_roadmap.csv"
+    output.headers["Content-type"] = "text/csv; charset=utf-8"
+    return output
+
+@app.route('/api/rice-guidelines')
+@login_required
+def get_rice_guidelines():
+    """US15: Trả về hướng dẫn định nghĩa khung chấm điểm RICE theo tiêu chuẩn MoMo"""
+    return jsonify({
+        'reach': 'Reach: Số lượng người dùng (Merchant/Khách hàng) bị ảnh hưởng bởi tính năng này trong vòng 30 ngày.',
+        'impact': 'Impact: Thang đo từ 1-5 (5: Cực kỳ quan trọng, 3: Cao, 2: Vừa, 1: Thấp) về mức độ cải thiện trải nghiệm.',
+        'confidence': 'Confidence: Độ tự tin của ước tính (%). Nếu dưới 50%, hệ thống sẽ tự động khóa tính điểm để yêu cầu lấy thêm feedback.',
+        'effort': 'Effort: Số tuần làm việc (Người-Tuần) cần thiết để thiết kế, phát triển và hoàn thiện tính năng.'
+    })
+
+
 # ─── ĐĂNG NHẬP / ĐĂNG XUẤT (BỔ SUNG ĐỂ SỬA LỖI BUILDERROR) ───────────────────
 @app.route('/login', methods=['GET', 'POST'])
 def login():
