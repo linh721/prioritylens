@@ -31,3 +31,21 @@ class Feature(db.Model):
                 (self.reach * self.impact * (self.confidence / 100)) / self.effort, 2
             )
         return self.rice_score
+
+class BehaviorLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    event_type = db.Column(db.String(50))   # click / pageview / dropout
+    page = db.Column(db.String(100))
+    element = db.Column(db.String(100))
+    user_type = db.Column(db.String(50), default='merchant')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+from flask_login import UserMixin
+
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(200), nullable=False)
+    role = db.Column(db.String(20), default='junior_po')
+    # Roles: junior_po / squad_po / head_of_product
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)

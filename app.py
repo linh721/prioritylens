@@ -1,42 +1,68 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify, flash
-from models import db, Feedback, Feature
-from dotenv import load_dotenv
-from google import genai
 import os
 import json
+import csv
+import io
+from flask import Flask, render_template, request, redirect, url_for, jsonify, flash
+from dotenv import load_dotenv
+from google import genai
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
+from models import db, Feedback, Feature, BehaviorLog, User
 
-# Phải nạp file .env trước để hệ thống nhận diện được API Key
+# 1. Nạp file .env và khởi tạo Client Gemini mới
 load_dotenv() 
-
-# Sau đó mới khởi tạo Client Gemini
 client = genai.Client() 
 
-
+# 2. Cấu hình Ứng dụng Flask & Database
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
 database_url = os.getenv('DATABASE_URL', '')
 
 if database_url:
-    # Render trả về URL bắt đầu bằng postgres://, cần đổi thành postgresql:// để SQLAlchemy hiểu
     if database_url.startswith('postgres://'):
         database_url = database_url.replace('postgres://', 'postgresql://', 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 else:
-    # Tự động dùng file SQLite khi bạn code offline ở máy tính (local)
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///prioritylens.db'
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
 db.init_app(app)
 
-# Cấu hình Gemini
-client = genai.Client()
+# 3. Cấu hình Hệ thống Đăng nhập (Flask-Login) bắt buộc đặt TRƯỚC các Route
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+login_manager.login_message = 'Vui lòng đăng nhập để tiếp tục'
 
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+# 4. Khởi tạo Database và Tạo tài khoản Demo mặc định khi khởi động ứng dụng
 with app.app_context():
     db.create_all()
+    if not User.query.first():
+        users = [
+            User(username='head_product',
+                 password_hash=generate_password_hash('password123'),
+                 role='head_of_product'),
+            User(username='squad_po',
+                 password_hash=generate_password_hash('password123'),
+                 role='squad_po'),
+            User(username='junior_po',
+                 password_hash=generate_password_hash('password123'),
+                 role='junior_po'),
+        ]
+        for u in users:
+            db.session.add(u)
+        db.session.commit()
+
+# ─── HỆ THỐNG ĐĂNG NHẬP / ĐĂNG XUẤT (Không được bọc bởi @login_required) ───────
+
 
 # ─── TRANG CHỦ ───────────────────────────────────────────────────────────────
 @app.route('/')
+@login_required 
 def index():
     total_feedback = Feedback.query.count()
     total_features = Feature.query.count()
@@ -44,7 +70,6 @@ def index():
     rejected = Feature.query.filter_by(status='rejected').count()
     pending = Feature.query.filter_by(status='backlog').count()
 
-    # Top 5 tính năng điểm cao nhất
     top_features = Feature.query.filter_by(status='backlog')\
         .order_by(Feature.rice_score.desc()).limit(5).all()
 
@@ -56,8 +81,9 @@ def index():
         pending=pending,
         top_features=top_features)
 
-# ─── FEEDBACK ────────────────────────────────────────────────────────────────
+# ─── FEEDBACK (QUẢN LÝ PHẢN HỒI) ──────────────────────────────────────────────
 @app.route('/feedback')
+@login_required 
 def feedback_list():
     source_filter = request.args.get('source', '')
     sentiment_filter = request.args.get('sentiment', '')
@@ -78,6 +104,7 @@ def feedback_list():
         sentiment_filter=sentiment_filter)
 
 @app.route('/feedback/add', methods=['POST'])
+@login_required
 def add_feedback():
     content = request.form.get('content', '').strip()
     source = request.form.get('source', 'merchant')
@@ -93,6 +120,7 @@ def add_feedback():
     return redirect(url_for('feedback_list'))
 
 @app.route('/feedback/analyze', methods=['POST'])
+@login_required
 def analyze_feedback():
     feedbacks = Feedback.query.filter_by(sentiment=None).all()
 
@@ -113,10 +141,8 @@ Yêu cầu: Chỉ trả về JSON, không giải thích thêm, đúng format sau
 
             chat = client.chats.create(model="gemini-3.6-flash")
             response = chat.send_message(prompt)
-
             text = response.text.strip()
 
-            # Làm sạch response nếu có markdown
             if '```' in text:
                 text = text.split('```')[1]
                 if text.startswith('json'):
@@ -139,6 +165,7 @@ Yêu cầu: Chỉ trả về JSON, không giải thích thêm, đúng format sau
     })
 
 @app.route('/feedback/delete/<int:id>', methods=['POST'])
+@login_required
 def delete_feedback(id):
     fb = Feedback.query.get_or_404(id)
     db.session.delete(fb)
@@ -146,8 +173,33 @@ def delete_feedback(id):
     flash('Đã xóa phản hồi', 'info')
     return redirect(url_for('feedback_list'))
 
-# ─── BACKLOG ──────────────────────────────────────────────────────────────────
+@app.route('/feedback/import', methods=['POST'])
+@login_required
+def import_feedback():
+    file = request.files.get('csv_file')
+    if not file or not file.filename.endswith('.csv'):
+        flash('Vui lòng chọn file CSV hợp lệ', 'danger')
+        return redirect(url_for('feedback_list'))
+
+    stream = io.StringIO(file.stream.read().decode('utf-8'))
+    reader = csv.DictReader(stream)
+    count = 0
+
+    for row in reader:
+        content = row.get('content') or row.get('noi_dung') or ''
+        source = row.get('source') or row.get('nguon') or 'support'
+        if content.strip():
+            fb = Feedback(content=content.strip(), source=source.strip())
+            db.session.add(fb)
+            count += 1
+
+    db.session.commit()
+    flash(f'Đã import {count} phản hồi từ file CSV', 'success')
+    return redirect(url_for('feedback_list'))
+
+# ─── BACKLOG (QUẢN LÝ TÍNH NĂNG & ĐIỂM RICE) ──────────────────────────────────
 @app.route('/backlog')
+@login_required 
 def backlog():
     status_filter = request.args.get('status', 'backlog')
     features = Feature.query.filter_by(status=status_filter)\
@@ -163,6 +215,7 @@ def backlog():
         all_status_count=all_status_count)
 
 @app.route('/feature/add', methods=['POST'])
+@login_required
 def add_feature():
     name = request.form.get('name', '').strip()
     description = request.form.get('description', '').strip()
@@ -189,7 +242,6 @@ def add_feature():
         effort=effort
     )
 
-    # Chỉ tính điểm khi Confidence >= 50%
     if confidence >= 50:
         feature.calculate_rice()
     else:
@@ -206,6 +258,7 @@ def add_feature():
     return redirect(url_for('backlog'))
 
 @app.route('/feature/<int:id>/decision', methods=['POST'])
+@login_required
 def feature_decision(id):
     feature = Feature.query.get_or_404(id)
     decision = request.form.get('decision')
@@ -236,18 +289,13 @@ def feature_decision(id):
     return redirect(url_for('backlog'))
 
 @app.route('/feature/<int:id>/suggest', methods=['POST'])
+@login_required
 def suggest_rice(id):
     """Gemini gợi ý điểm RICE dựa trên phản hồi liên quan"""
     feature = Feature.query.get_or_404(id)
-
-    # Lấy feedback liên quan cùng topic
-    related = Feedback.query.filter(
-        Feedback.topic.ilike(f'%{feature.name[:10]}%')
-    ).limit(10).all()
-
-    feedback_text = '\n'.join([f'- [{fb.sentiment}] {fb.content}' for fb in related]) \
-        if related else 'Chưa có phản hồi liên quan'
-
+    related = Feedback.query.filter(Feedback.topic.ilike(f'%{feature.name[:10]}%')).limit(10).all()
+    feedback_text = '\n'.join([f'- [{fb.sentiment}] {fb.content}' for fb in related]) if related else 'Chưa có phản hồi liên quan'
+    
     try:
         prompt = f"""Bạn là chuyên gia Product Management. Dựa trên thông tin sau, hãy gợi ý điểm RICE cho tính năng.
 
@@ -265,19 +313,94 @@ Trả về JSON (chỉ JSON, không giải thích):
   "reasoning": "<giải thích ngắn gọn bằng tiếng Việt>"
 }}"""
 
-        response = gemini_model.generate_content(prompt)
+        # Gọi AI qua Client thư viện mới
+        chat = client.chats.create(model="gemini-3.6-flash")
+        response = chat.send_message(prompt)
         text = response.text.strip()
 
+        # Làm sạch chuỗi JSON nếu AI trả về kèm bọc codeblock markdown
         if '```' in text:
-            text = text.split('```')[1]
-            if text.startswith('json'):
-                text = text[4:]
+            blocks = text.split('```')
+            for block in blocks:
+                cleaned = block.strip()
+                if cleaned.startswith('json'):
+                    cleaned = cleaned[4:].strip()
+                if cleaned.startswith('{') and cleaned.endswith('}'):
+                    text = cleaned
+                    break
 
         result = json.loads(text.strip())
         return jsonify({'status': 'ok', 'suggestion': result})
-
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
+
+# ─── THỐNG KÊ & THEO DÕI HÀNH VI (BEHAVIOR LOGS) ──────────────────────────────
+@app.route('/track', methods=['POST'])
+def track_behavior():
+    data = request.get_json()
+    log = BehaviorLog(
+        event_type=data.get('event_type', 'click'),
+        page=data.get('page', ''),
+        element=data.get('element', ''),
+        user_type=data.get('user_type', 'merchant')
+    )
+    db.session.add(log)
+    db.session.commit()
+    return jsonify({'status': 'ok'})
+
+@app.route('/behavior')
+@login_required
+def behavior_log():
+    logs = BehaviorLog.query.order_by(BehaviorLog.created_at.desc()).limit(100).all()
+    dropout_count = BehaviorLog.query.filter_by(event_type='dropout').count()
+    click_count = BehaviorLog.query.filter_by(event_type='click').count()
+    return render_template('behavior.html',
+        logs=logs,
+        dropout_count=dropout_count,
+        click_count=click_count)
+
+@app.route('/api/chart-data')
+@login_required
+def chart_data():
+    positive = Feedback.query.filter_by(sentiment='positive').count()
+    negative = Feedback.query.filter_by(sentiment='negative').count()
+    neutral = Feedback.query.filter_by(sentiment='neutral').count()
+    unanalyzed = Feedback.query.filter_by(sentiment=None).count()
+
+    backlog = Feature.query.filter_by(status='backlog').count()
+    approved = Feature.query.filter_by(status='approved').count()
+    rejected = Feature.query.filter_by(status='rejected').count()
+
+    return jsonify({
+        'sentiment': {
+            'labels': ['Tích cực', 'Tiêu cực', 'Trung tính', 'Chưa phân tích'],
+            'data': [positive, negative, neutral, unanalyzed],
+            'colors': ['#198754', '#dc3545', '#6c757d', '#ffc107']
+        },
+        'backlog': {
+            'labels': ['Chờ duyệt', 'Đã duyệt', 'Từ chối'],
+            'data': [backlog, approved, rejected],
+            'colors': ['#0d6efd', '#198754', '#dc3545']
+        }
+    })
+# ─── ĐĂNG NHẬP / ĐĂNG XUẤT (BỔ SUNG ĐỂ SỬA LỖI BUILDERROR) ───────────────────
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        user = User.query.filter_by(username=username).first()
+        if user and check_password_hash(user.password_hash, password):
+            login_user(user)
+            return redirect(url_for('index'))
+        flash('Sai tên đăng nhập hoặc mật khẩu', 'danger')
+    return render_template('login.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
 
 if __name__ == '__main__':
     app.run(debug=True)

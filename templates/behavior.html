@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0">Theo dõi hành vi người dùng</h2>
+        <p class="text-muted mb-0">Behavior Tracker — ghi lại thao tác trong hệ thống</p>
+    </div>
+    <form method="POST" action="/behavior/clear"
+          onsubmit="return confirm('Xóa toàn bộ log hành vi?')">
+        <button class="btn btn-outline-danger btn-sm">🗑 Xóa log</button>
+    </form>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body py-3">
+                <h2 class="fw-bold text-primary">{{ click_count }}</h2>
+                <p class="text-muted small mb-0">Tổng lượt click</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body py-3">
+                <h2 class="fw-bold text-warning">{{ pageview_count }}</h2>
+                <p class="text-muted small mb-0">Lượt xem trang</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body py-3">
+                <h2 class="fw-bold text-danger">{{ dropout_count }}</h2>
+                <p class="text-muted small mb-0">Lượt thoát trang</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body py-3">
+                <h2 class="fw-bold text-success">{{ total_count }}</h2>
+                <p class="text-muted small mb-0">Tổng sự kiện</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Biểu đồ trang được truy cập nhiều nhất -->
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white fw-bold">📊 Trang được truy cập nhiều nhất</div>
+            <div class="card-body">
+                <canvas id="pageChart" height="220"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white fw-bold">🖱 Phân bố loại sự kiện</div>
+            <div class="card-body">
+                <canvas id="eventChart" height="220"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bảng log chi tiết -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white fw-bold d-flex justify-content-between">
+        <span>📋 Log hành vi gần nhất</span>
+        <span class="text-muted small fw-normal">Hiển thị 100 sự kiện mới nhất</span>
+    </div>
+    <div class="card-body p-0">
+        {% if logs %}
+        <div style="max-height: 400px; overflow-y: auto;">
+            <table class="table table-hover table-sm mb-0">
+                <thead class="table-light sticky-top">
+                    <tr>
+                        <th>Loại sự kiện</th>
+                        <th>Trang</th>
+                        <th>Phần tử</th>
+                        <th>Loại người dùng</th>
+                        <th>Thời gian</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td>
+                            {% if log.event_type == 'click' %}
+                                <span class="badge bg-primary">Click</span>
+                            {% elif log.event_type == 'dropout' %}
+                                <span class="badge bg-danger">Thoát</span>
+                            {% elif log.event_type == 'pageview' %}
+                                <span class="badge bg-success">Xem trang</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ log.event_type }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted small">{{ log.page or '—' }}</td>
+                        <td class="text-muted small">{{ log.element or '—' }}</td>
+                        <td>
+                            <span class="badge bg-light text-dark">{{ log.user_type }}</span>
+                        </td>
+                        <td class="text-muted small">
+                            {{ log.created_at.strftime('%d/%m %H:%M:%S') }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <p>Chưa có log hành vi nào được ghi nhận.</p>
+            <p class="small">Hệ thống sẽ tự động ghi lại khi người dùng thao tác trên các trang.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+fetch('/api/behavior-chart')
+    .then(r => r.json())
+    .then(data => {
+
+        // Biểu đồ trang truy cập
+        if (data.pages.labels.length > 0) {
+            new Chart(document.getElementById('pageChart'), {
+                type: 'bar',
+                data: {
+                    labels: data.pages.labels,
+                    datasets: [{
+                        label: 'Số lượt',
+                        data: data.pages.data,
+                        backgroundColor: '#0d6efd'
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    plugins: { legend: { display: false } },
+                    scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                }
+            });
+        }
+
+        // Biểu đồ loại sự kiện
+        if (data.events.data.some(v => v > 0)) {
+            new Chart(document.getElementById('eventChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: data.events.labels,
+                    datasets: [{
+                        data: data.events.data,
+                        backgroundColor: ['#0d6efd', '#198754', '#dc3545', '#ffc107']
+                    }]
+                },
+                options: {
+                    plugins: { legend: { position: 'bottom' } },
+                    cutout: '55%'
+                }
+            });
+        }
+    })
+    .catch(err => console.log('Chart error:', err));
+</script>
+{% endblock %}

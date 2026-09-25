@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-4">
+                <div class="text-center mb-4">
+                    <h3 class="fw-bold">🔍 PriorityLens</h3>
+                    <p class="text-muted small">Hệ thống hỗ trợ ra quyết định ưu tiên tính năng</p>
+                </div>
+
+                <form method="POST" action="/login">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Tên đăng nhập</label>
+                        <input type="text" name="username" class="form-control"
+                            placeholder="Nhập tên đăng nhập" required autofocus>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Mật khẩu</label>
+                        <input type="password" name="password" class="form-control"
+                            placeholder="Nhập mật khẩu" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Đăng nhập</button>
+                </form>
+
+                <hr class="my-4">
+
+                <div class="bg-light rounded p-3">
+                    <p class="text-muted small fw-bold mb-2">Tài khoản mặc định:</p>
+                    <table class="table table-sm table-borderless mb-0 small">
+                        <tr>
+                            <td><span class="badge bg-danger">Head of Product</span></td>
+                            <td><code>head_product</code></td>
+                            <td><code>password123</code></td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge bg-primary">Squad PO</span></td>
+                            <td><code>squad_po</code></td>
+                            <td><code>password123</code></td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge bg-secondary">Junior PO</span></td>
+                            <td><code>junior_po</code></td>
+                            <td><code>password123</code></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <p class="text-center text-muted small mt-3">
+            Nghiên cứu tình huống tại MoMo Merchant & Growth Squad
+        </p>
+    </div>
+</div>
+{% endblock %}

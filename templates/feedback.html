@@ -128,7 +128,10 @@
     </div>
 </div>
 {% endblock %}
-
+<form method="POST" action="/feedback/import" enctype="multipart/form-data" class="d-inline">
+    <input type="file" name="csv_file" accept=".csv" class="form-control form-control-sm d-inline w-auto">
+    <button type="submit" class="btn btn-outline-secondary btn-sm">📂 Import CSV</button>
+</form>
 {% block scripts %}
 <script>
 function analyzeAll() {

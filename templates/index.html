@@ -104,4 +104,66 @@
         </div>
     </div>
 </div>
+
+<!-- Biểu đồ sentiment -->
+<div class="row g-3 mt-2">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white fw-bold">📊 Phân bố cảm xúc phản hồi</div>
+            <div class="card-body">
+                <canvas id="sentimentChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white fw-bold">📈 Trạng thái backlog</div>
+            <div class="card-body">
+                <canvas id="backlogChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+fetch('/api/chart-data')
+    .then(r => r.json())
+    .then(data => {
+        // Sentiment chart
+        new Chart(document.getElementById('sentimentChart'), {
+            type: 'doughnut',
+            data: {
+                labels: data.sentiment.labels,
+                datasets: [{
+                    data: data.sentiment.data,
+                    backgroundColor: data.sentiment.colors
+                }]
+            },
+            options: {
+                plugins: { legend: { position: 'bottom' } },
+                cutout: '60%'
+            }
+        });
+
+        // Backlog chart
+        new Chart(document.getElementById('backlogChart'), {
+            type: 'bar',
+            data: {
+                labels: data.backlog.labels,
+                datasets: [{
+                    label: 'Số tính năng',
+                    data: data.backlog.data,
+                    backgroundColor: data.backlog.colors
+                }]
+            },
+            options: {
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+            }
+        });
+    });
+</script>
 {% endblock %}
