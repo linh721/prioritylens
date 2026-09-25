@@ -2,211 +2,199 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h2 class="fw-bold mb-0">Backlog Ưu tiên Tính năng</h2>
+        <h2 class="fw-bold" style="color: #1a202c; font-size: 1.6rem; margin-bottom: 4px;">Backlog Ưu tiên Tính năng</h2>
         <p class="text-muted mb-0">Xếp hạng tính năng tự động theo mô hình Ma trận đa tiêu chí RICE Matrix</p>
     </div>
     <div class="d-flex gap-2">
         <a href="/backlog/export-csv" class="btn btn-outline-dark shadow-sm">📥 Xuất file CSV Roadmap</a>
-        <button class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#modalAddFeature">+ Tạo tính năng mới</button>
+        <button class="btn btn-primary shadow-sm" onclick="toggleElement('boxAddFeature')">+ Tạo tính năng mới</button>
     </div>
 </div>
 
 <!-- Thuật toán US25: Hộp quét phát hiện xung đột & khai gian dữ liệu -->
-<div id="conflictAlertBox" class="mb-4 d-none">
-    <div class="card border-0 shadow-sm border-start border-4 border-danger">
-        <div class="card-header bg-white fw-bold py-2 d-flex justify-content-between align-items-center">
-            <span class="text-danger">🛡️ Bộ kiểm toán DSS: Phát hiện xung đột & Bất thường dữ liệu</span>
-            <span id="conflictCount" class="badge bg-danger rounded-pill">0</span>
-        </div>
-        <div id="conflictList" class="card-body py-2 small">
-            <!-- Dữ liệu cảnh báo tự động chèn vào đây -->
-        </div>
+<div id="conflictAlertBox" class="card d-none" style="border-left: 4px solid #d62246 !important;">
+    <div class="card-header" style="color: #d62246; display: flex; justify-content: space-between; align-items: center; font-weight: bold; padding: 12px 20px;">
+        <span>🛡️ Bộ kiểm toán DSS: Phát hiện xung đột & Bất thường dữ liệu</span>
+        <span id="conflictCount" class="badge bg-danger">0</span>
+    </div>
+    <div id="conflictList" style="padding: 15px 20px; font-size: 0.88rem; background-color: #fff;">
+        <!-- Dữ liệu cảnh báo tự động chèn vào đây -->
     </div>
 </div>
 
-<!-- Tabs Status Filter -->
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div class="btn-group shadow-sm">
-        <a href="/backlog?status=backlog" class="btn btn-{% if status_filter == 'backlog' %}primary{% else %}light{% endif %} px-4">
+<!-- Form Thêm tính năng mới (Mặc định ẩn, bấm nút sẽ hiện mượt mà) -->
+<div id="boxAddFeature" class="card d-none" style="border-top: 4px solid #a50064 !important; background-color: #fff; padding: 24px; margin-bottom: 24px; border-radius: 12px; border: 1px solid #eef2f6;">
+    <div class="fw-bold mb-3" style="color: #a50064; font-size: 1.1rem; border-bottom: 1px solid #edf2f9; padding-bottom: 10px;">🚀 Thêm tính năng & Chấm điểm sơ bộ</div>
+    <form action="/feature/add" method="POST" class="row g-3">
+        <div class="col-md-6" style="margin-bottom: 15px;">
+            <label class="form-label fw-bold small" style="display:block; margin-bottom:5px; color:#4a5568;">Tên tính năng sản phẩm MoMo *</label>
+            <input type="text" name="name" class="form-control" required placeholder="Ví dụ: Loa Soundbox báo thuế" style="width:100%; padding:10px; border-radius:8px; border:1px solid #cbd5e1;">
+        </div>
+        <div class="col-md-6" style="margin-bottom: 15px;">
+            <label class="form-label fw-bold small" style="display:block; margin-bottom:5px; color:#4a5568;">Reach (Số lượng tiếp cận/tháng)</label>
+            <input type="number" name="reach" class="form-control" value="0" min="0" style="width:100%; padding:10px; border-radius:8px; border:1px solid #cbd5e1;">
+        </div>
+        <div class="col-md-12" style="margin-bottom: 15px;">
+            <label class="form-label fw-bold small" style="display:block; margin-bottom:5px; color:#4a5568;">Mô tả chi tiết tính năng</label>
+            <textarea name="description" class="form-control" rows="2" placeholder="Nhập bối cảnh nghiệp vụ..." style="width:100%; padding:10px; border-radius:8px; border:1px solid #cbd5e1;"></textarea>
+        </div>
+        <div class="col-md-4" style="margin-bottom: 15px;">
+            <label class="form-label fw-bold small" style="display:block; margin-bottom:5px; color:#4a5568;">Impact (Mức độ tác động: 1-5)</label>
+            <select name="impact" class="form-select" style="width:100%; padding:10px; border-radius:8px; border:1px solid #cbd5e1; background-color:#fff;">
+                <option value="1">1 — Rất thấp</option>
+                <option value="2">2 — Thấp</option>
+                <option value="3" selected>3 — Trung bình</option>
+                <option value="4">4 — Cao</option>
+                <option value="5">5 — Cực kỳ quan trọng</option>
+            </select>
+        </div>
+        <div class="col-md-4" style="margin-bottom: 15px;">
+            <label class="form-label fw-bold small" style="display:block; margin-bottom:5px; color:#4a5568;">Confidence (Độ tự tin: 0-100%)</label>
+            <input type="number" name="confidence" class="form-control" value="80" min="0" max="100" style="width:100%; padding:10px; border-radius:8px; border:1px solid #cbd5e1;">
+        </div>
+        <div class="col-md-4" style="margin-bottom: 15px;">
+            <label class="form-label fw-bold small" style="display:block; margin-bottom:5px; color:#4a5568;">Effort (Người-Tuần phát triển)</label>
+            <input type="number" name="effort" class="form-control" value="1" min="0.1" step="0.1" style="width:100%; padding:10px; border-radius:8px; border:1px solid #cbd5e1;">
+        </div>
+        <div class="col-md-12 text-end" style="margin-top: 15px; text-align:right;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="toggleElement('boxAddFeature')" style="padding:6px 14px; margin-right:5px; border-radius:6px; font-weight:600;">Hủy</button>
+            <button type="submit" class="btn btn-primary btn-sm" style="padding:6px 14px; border-radius:6px; font-weight:600; background-color:#0055d4; color:#fff;">Thêm và tính điểm RICE</button>
+        </div>
+    </form>
+</div>
+
+<!-- Khung xử lý Quyết định & Điều chỉnh thông số (Mặc định ẩn, gọi động) -->
+<div id="boxDecision" class="card d-none" style="border-top: 4px solid #2d3748 !important; background-color: #f8fafc; padding: 24px; margin-bottom: 24px; border-radius: 12px;">
+    <div class="fw-bold mb-3" id="decisionTitle" style="color: #2d3748; font-size: 1.1rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 10px;">Ghi nhận quyết định rà soát</div>
+    <form id="formDecision" method="POST">
+        <input type="hidden" name="decision" id="inputDecision">
+        
+        <!-- Xuất hiện động nếu PO chọn Adjust tham số -->
+        <div id="adjustFields" class="d-none row" style="background-color: #fff; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px dashed #cbd5e1;">
+            <div class="col-md-4">
+                <label class="small fw-bold" style="display:block; margin-bottom:5px;">Impact (1-5)</label>
+                <input type="number" name="impact" id="adjImpact" class="form-control" min="1" max="5">
+            </div>
+            <div class="col-md-4">
+                <label class="small fw-bold" style="display:block; margin-bottom:5px;">Confidence (%)</label>
+                <input type="number" name="confidence" id="adjConfidence" class="form-control" min="0" max="100">
+            </div>
+            <div class="col-md-4">
+                <label class="small fw-bold" style="display:block; margin-bottom:5px;">Effort (Tuần)</label>
+                <input type="number" name="effort" id="adjEffort" class="form-control" step="0.1">
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label fw-bold small" style="display:block; margin-bottom:5px; color:#4a5568;">Lý do quyết định giải trình (Bắt buộc theo US22) *</label>
+            <textarea name="reason" class="form-control" rows="2" required placeholder="Ghi căn cứ dữ liệu thô hoặc áp lực chiến lược từ cấp trên..." style="width:100%; padding:10px; border-radius:8px; border:1px solid #cbd5e1;"></textarea>
+        </div>
+        <div class="text-end" style="margin-top: 15px; text-align:right;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="toggleElement('boxDecision')" style="padding:6px 14px; margin-right:5px; border-radius:6px; font-weight:600;">Hủy</button>
+            <button type="submit" class="btn btn-dark btn-sm" style="padding:6px 14px; border-radius:6px; font-weight:600; background-color:#2d3748; color:#fff;">Xác nhận quyết định</button>
+        </div>
+    </form>
+</div>
+
+<!-- Hộp hiển thị kết quả Cố vấn AI Insight (Mặc định ẩn) -->
+<div id="boxAI" class="card d-none" style="border-left: 4px solid #ffb700 !important; background-color: #fff; padding: 24px; margin-bottom: 24px; border-radius: 12px;">
+    <div class="fw-bold mb-3" style="color: #b45309; font-size: 1.1rem; border-bottom: 1px solid #edf2f9; padding-bottom: 10px;">🤖 Cố vấn AI cấp cao (Head of Product AI Insight)</div>
+    <div id="aiContent" class="small text-dark" style="white-space: pre-line; line-height: 1.6; padding: 5px 10px;">
+        Đang xử lý dữ liệu ma trận...
+    </div>
+    <div class="text-end" style="margin-top: 15px; text-align:right;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="toggleElement('boxAI')" style="padding:6px 14px; border-radius:6px; font-weight:600;">Đóng báo cáo</button>
+    </div>
+</div>
+
+<!-- Bộ lọc trạng thái chuyển đổi Tab điều hướng -->
+<div class="d-flex justify-content-between align-items-center mb-4" style="margin-top: 20px; display:flex; justify-content:space-between; align-items:center;">
+    <div class="d-flex gap-2" style="display:flex; gap:8px;">
+        <a href="/backlog?status=backlog" class="btn btn-sm {% if status_filter == 'backlog' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 6px 16px !important; text-decoration:none; font-weight:600; border-radius:6px;">
             📋 Chờ duyệt ({{ all_status_count.backlog }})
         </a>
-        <a href="/backlog?status=approved" class="btn btn-{% if status_filter == 'approved' %}success{% else %}light{% endif %} px-4">
+        <a href="/backlog?status=approved" class="btn btn-sm {% if status_filter == 'approved' %}btn-success{% else %}btn-secondary{% endif %}" style="padding: 6px 16px !important; text-decoration:none; font-weight:600; border-radius:6px;">
             ✅ Đã phê duyệt ({{ all_status_count.approved }})
         </a>
-        <a href="/backlog?status=rejected" class="btn btn-{% if status_filter == 'rejected' %}danger{% else %}light{% endif %} px-4">
+        <a href="/backlog?status=rejected" class="btn btn-sm {% if status_filter == 'rejected' %}btn-danger{% else %}btn-secondary{% endif %}" style="padding: 6px 16px !important; text-decoration:none; font-weight:600; border-radius:6px;">
             ❌ Từ chối ({{ all_status_count.rejected }})
         </a>
     </div>
-    <button class="btn btn-sm btn-link text-secondary" id="btnShowGuide">ℹ️ Xem hướng dẫn chấm RICE</button>
+    <button class="btn btn-sm" id="btnShowGuide" style="color: #a50064; font-weight: 600; background: transparent; border: none; cursor: pointer; font-size:0.9rem;">💡 Xem hướng dẫn chấm RICE</button>
 </div>
 
-<!-- Backlog Items -->
+<!-- Vùng lặp dữ liệu danh sách tính năng chính -->
+<!-- Vùng lặp dữ liệu danh sách tính năng chính -->
 {% if features %}
     {% for feature in features %}
-    <div class="card border-0 shadow-sm mb-3 {% if feature.confidence < 50 %}border-start border-4 border-warning{% endif %}">
-        <div class="card-body">
-            <div class="row align-items-center g-3">
-                <div class="col-md-2 text-center border-end">
-                    <span class="text-muted small d-block mb-1">ĐIỂM RICE</span>
-                    <h2 class="fw-bold mb-0 {% if feature.rice_score > 0 %}text-success{% else %}text-muted{% endif %}">
-                        {{ feature.rice_score }}
-                    </h2>
-                </div>
-                <div class="col-md-6">
-                    <div class="d-flex align-items-center gap-2 mb-1">
-                        <h5 class="fw-bold mb-0 text-dark">{{ feature.name }}</h5>
-                        {% if feature.confidence < 50 %}
-                            <span class="badge bg-warning text-dark small">⚠️ Khóa điểm: Confidence &lt; 50%</span>
-                        {% endif %}
-                    </div>
-                    <p class="text-muted small mb-2">{{ feature.description or 'Chưa có dữ liệu mô tả tính năng.' }}</p>
-                    
-                    <!-- RICE Params Badge -->
-                    <div class="d-flex gap-3 text-muted small bg-light p-2 rounded">
-                        <span>🚀 Reach: <strong>{{ feature.reach }}</strong></span>
-                        <span>🎯 Impact: <strong>{{ feature.impact }}</strong></span>
-                        <span>🎲 Confidence: <strong>{{ feature.confidence }}%</strong></span>
-                        <span>⏳ Effort: <strong>{{ feature.effort }}w</strong></span>
-                    </div>
-                </div>
-                <div class="col-md-4 text-md-end">
-                    {% if status_filter == 'backlog' %}
-                    <div class="d-flex justify-content-md-end gap-2 mb-2">
-                        <button class="btn btn-sm btn-warning text-dark" onclick="openAIResponse({{ feature.id }})">🤖 AI Insight</button>
-                        <button class="btn btn-sm btn-success" onclick="openDecisionModal({{ feature.id }}, 'approved')">Approve</button>
-                        <button class="btn btn-sm btn-outline-danger" onclick="openDecisionModal({{ feature.id }}, 'rejected')">Reject</button>
-                    </div>
-                    <button class="btn btn-sm btn-link text-secondary p-0" onclick="openDecisionModal({{ feature.id }}, 'adjust')">Điều chỉnh tham số</button>
-                    {% elif status_filter == 'approved' or status_filter == 'in_progress' or status_filter == 'done' %}
-                    <form action="/feature/{{ feature.id }}/status" method="POST" class="d-flex gap-2 justify-content-md-end">
-                        <select name="status" class="form-select form-select-sm w-auto">
-                            <option value="approved" {% if feature.status == 'approved' %}selected{% endif %}>Đã duyệt</option>
-                            <option value="in_progress" {% if feature.status == 'in_progress' %}selected{% endif %}>In Progress 🛠️</option>
-                            <option value="done" {% if feature.status == 'done' %}selected{% endif %}>Done 🎉</option>
-                        </select>
-                        <button type="submit" class="btn btn-sm btn-dark">Lưu</button>
-                    </form>
+    <div class="card shadow-sm" style="background-color:#fff; border-radius:12px; padding: 20px; margin-bottom: 16px; border:1px solid #eef2f6; box-shadow:0 4px 6px rgba(0,0,0,0.01);">
+        <div class="row align-items-center" style="display:flex; flex-wrap:wrap; align-items:center;">
+            <div class="col-md-2 text-center" style="flex:0 0 16.666%; max-width:16.666%; text-align:center; border-right: 1px solid #edf2f9; padding-right:15px;">
+                <span class="text-muted small fw-bold" style="display: block; margin-bottom: 2px; font-size:0.75rem; color:#718096;">ĐIỂM RICE</span>
+                <h1 class="fw-bold mb-0" style="font-size: 2rem; margin:0; color: {% if feature.rice_score > 0 %}#008744{% else %}#718096{% endif %};">{{ feature.rice_score }}</h1>
+            </div>
+            <div class="col-md-6" style="flex:0 0 50%; max-width:50%; padding-left: 20px; padding-right:15px; text-align:left;">
+                <div class="d-flex align-items-center gap-2 mb-1" style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                    <h5 class="fw-bold text-dark mb-0" style="font-size: 1.05rem; margin:0; font-weight:700;">{{ feature.name }}</h5>
+                    {% if feature.confidence < 50 %}
+                        <span class="badge bg-warning" style="background-color:#fff3cd; color:#664d03; padding:4px 8px; font-size:0.75rem; font-weight:700; border-radius:4px;">⚠️ Khóa điểm: Confidence &lt; 50%</span>
                     {% endif %}
                 </div>
+                <p class="text-muted small mb-2" style="line-height: 1.4; font-size:0.85rem; color:#718096; margin-bottom:8px;">{{ feature.description or 'Chưa có dữ liệu mô tả tính năng.' }}</p>
+                
+                <div class="d-flex gap-3 text-muted small" style="display:flex; gap:15px; background-color:#f8fafc; padding: 6px 12px; border-radius:6px; font-weight:600; font-size:0.82rem;">
+                    <span>🚀 Reach: <strong style="color:#2d3748;">{{ feature.reach|int }}</strong></span>
+                    <span>🎯 Impact: <strong style="color:#2d3748;">{{ feature.impact|int }}</strong></span>
+                    <span>🎲 Confidence: <strong style="color:#2d3748;">{{ feature.confidence|int }}%</strong></span>
+                    <span>⏳ Effort: <strong style="color:#2d3748;">{{ feature.effort }}w</strong></span>
+                </div>
             </div>
-            
-            {% if feature.decision_reason %}
-            <div class="mt-3 pt-2 border-top bg-opacity-10 small text-muted">
-                <strong>💬 Nhật ký lý do giải trình:</strong> {{ feature.decision_reason }}
+            <div class="col-md-4 text-end" style="flex:0 0 33.333%; max-width:33.333%; text-align:right; padding-left:15px;">
+                {% if status_filter == 'backlog' %}
+                <div class="d-flex gap-2" style="display:flex; gap:8px; justify-content: flex-end; margin-bottom: 8px;">
+                    <button class="btn btn-sm btn-warning" onclick="openAIInsight({{ feature.id }})" style="background-color:#ffb700; color:#2d3748; font-weight:600; padding:5px 12px; border-radius:6px; border:none; cursor:pointer;">🤖 AI Insight</button>
+                    <button class="btn btn-sm btn-success" onclick="showDecisionBox({{ feature.id }}, 'approved')" style="background-color:#008744; color:#fff; font-weight:600; padding:5px 12px; border-radius:6px; border:none; cursor:pointer;">Approve</button>
+                    <button class="btn btn-sm btn-danger" onclick="showDecisionBox({{ feature.id }}, 'rejected')" style="background-color:#d62246; color:#fff; font-weight:600; padding:5px 12px; border-radius:6px; border:none; cursor:pointer;">Reject</button>
+                </div>
+                <button class="btn btn-sm text-secondary" style="background:transparent; border:none; cursor:pointer; color:#718096; font-size:0.85rem;" onclick="showDecisionBox({{ feature.id }}, 'adjust', {{ feature.impact }}, {{ feature.confidence }}, {{ feature.effort }})">Điều chỉnh tham số</button>
+                {% elif status_filter == 'approved' or status_filter == 'in_progress' or status_filter == 'done' %}
+                <form action="/feature/{{ feature.id }}/status" method="POST" class="d-flex gap-2" style="display:flex; gap:8px; justify-content: flex-end;">
+                    <select name="status" class="form-select form-select-sm" style="width: auto; padding:4px 10px; border-radius:6px; border:1px solid #cbd5e1; background-color:#fff;">
+                        <option value="approved" {% if feature.status == 'approved' %}selected{% endif %}>Đã duyệt</option>
+                        <option value="in_progress" {% if feature.status == 'in_progress' %}selected{% endif %}>In Progress 🛠️</option>
+                        <option value="done" {% if feature.status == 'done' %}selected{% endif %}>Done 🎉</option>
+                    </select>
+                    <button type="submit" class="btn btn-sm btn-primary" style="background-color:#0055d4; color:#fff; font-weight:600; padding:4px 12px; border-radius:6px; border:none; cursor:pointer;">Lưu</button>
+                </form>
+                {% endif %}
             </div>
-            {% endif %}
         </div>
+        
+        {% if feature.decision_reason %}
+        <div style="margin-top: 12px; padding-top: 8px; border-top: 1px dashed #e2e8f0; font-size: 0.82rem; color: #718096; text-align:left;">
+            <strong>💬 Nhật ký lý do giải trình:</strong> {{ feature.decision_reason }}
+        </div>
+        {% endif %}
     </div>
     {% endfor %}
 {% else %}
-<div class="text-center py-5 card border-0 shadow-sm text-muted">Chưa có tính năng nào ở trạng thái này.</div>
+<div class="text-center text-muted card" style="padding: 50px 0; text-align:center; background-color:#fff; border-radius:12px; border:1px solid #eef2f6;">Chưa có tính năng nào ở trạng thái rà soát này trong Backlog.</div>
 {% endif %}
 
-<!-- Modal Add Feature -->
-<div class="modal fade" id="modalAddFeature" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <form action="/feature/add" method="POST" class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title fw-bold">🚀 Thêm tính năng & Chấm điểm sơ bộ</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body row g-3">
-                <div class="col-md-6">
-                    <label class="form-label fw-semibold">Tên tính năng *</label>
-                    <input type="text" name="name" class="form-control" required placeholder="Ví dụ: Loa Soundbox báo thuế">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label fw-semibold">Reach (Số lượng tiếp cận/tháng)</label>
-                    <input type="number" name="reach" class="form-control" value="0" min="0">
-                </div>
-                <div class="col-12">
-                    <label class="form-label fw-semibold">Mô tả tính năng</label>
-                    <textarea name="description" class="form-control" rows="2"></textarea>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-semibold">Impact (Tác động: 1-5)</label>
-                    <select name="impact" class="form-select">
-                        <option value="1">1 — Rất thấp</option>
-                        <option value="2">2 — Thấp</option>
-                        <option value="3" selected>3 — Trung bình</option>
-                        <option value="4">4 — Cao</option>
-                        <option value="5">5 — Cực kỳ quan trọng</option>
-                    </select>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-semibold">Confidence (Độ tự tin: 0-100%)</label>
-                    <input type="number" name="confidence" class="form-control" value="80" min="0" max="100">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-semibold">Effort (Người-Tuần phát triển)</label>
-                    <input type="number" name="effort" class="form-control" value="1" min="0.1" step="0.1">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                <button type="submit" class="btn btn-primary">Thêm và tính điểm RICE</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- Modal Decision / Adjust Parameters -->
-<div class="modal fade" id="modalDecision" tabindex="-1">
-    <div class="modal-dialog">
-        <form id="formDecision" method="POST" class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title fw-bold" id="decisionTitle">Ghi nhận quyết định</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" name="decision" id="inputDecision">
-                
-                <!-- Khối hiển thị thêm nếu PO chọn hành động Adjust -->
-                <div id="adjustFields" class="d-none row g-2 mb-3 bg-light p-2 rounded">
-                    <div class="col-4">
-                        <label class="small fw-bold">Impact</label>
-                        <input type="number" name="impact" id="adjImpact" class="form-control form-control-sm">
-                    </div>
-                    <div class="col-4">
-                        <label class="small fw-bold">Confidence %</label>
-                        <input type="number" name="confidence" id="adjConfidence" class="form-control form-control-sm">
-                    </div>
-                        <label class="small fw-bold">Effort (w)</label>
-                        <input type="number" name="effort" id="adjEffort" class="form-control form-control-sm" step="0.1">
-                    </div>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">Lý do quyết định giải trình (Bắt buộc theo US22) *</label>
-                    <textarea name="reason" class="form-control" rows="3" required placeholder="Ghi căn cứ dữ liệu để thuyết phục ban giám đốc..."></textarea>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                <button type="submit" class="btn btn-dark">Xác nhận quyết định</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- Modal AI Insight View -->
-<div class="modal fade" id="modalAI" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title fw-bold">🤖 Cố vấn AI cấp cao (Head of Product AI Insight)</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body text-dark" style="white-space: pre-line;" id="aiContent">
-                Đang xử lý dữ liệu ma trận và lập báo cáo khuyến nghị...
-            </div>
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+// Hàm ẩn hiện cấu trúc khối đa năng độc lập offline
+function toggleElement(id) {
+    const el = document.getElementById(id);
+    if (el.classList.contains('d-none')) {
+        el.classList.remove('d-none');
+    } else {
+        el.classList.add('d-none');
+    }
+}
+
 // Chạy thuật toán tự động rà soát phát hiện gian lận/xung đột dữ liệu (US25)
 document.addEventListener("DOMContentLoaded", function() {
     fetch('/api/conflict-detector')
@@ -216,32 +204,33 @@ document.addEventListener("DOMContentLoaded", function() {
                 document.getElementById('conflictAlertBox').classList.remove('d-none');
                 document.getElementById('conflictCount').textContent = data.total_conflicts;
                 const container = document.getElementById('conflictList');
+                container.innerHTML = ""; // Clear old contents
                 data.conflicts.forEach(c => {
-                    container.innerHTML += `<div class="py-1 text-${c.type}"><strong>${c.feature_name}:</strong> ${c.message}</div>`;
+                    container.innerHTML += `<div style="padding: 4px 0; color: #d62246; text-align:left;"><strong>${c.feature_name}:</strong> ${c.message}</div>`;
                 });
             }
         });
 });
 
 // Gọi AI Đưa ý kiến phân tích điểm số (US17)
-function openAIResponse(id) {
-    const modal = new Bootstrap.Modal(document.getElementById('modalAI'));
-    document.getElementById('aiContent').innerHTML = `<div class="text-center py-3"><div class="spinner-border text-primary"></div><p class="mt-2">Gemini AI đang audit ma trận điểm số...</p></div>`;
-    modal.show();
+function openAIInsight(id) {
+    document.getElementById('boxAI').classList.remove('d-none');
+    document.getElementById('aiContent').innerHTML = `<div style="padding: 10px 0; text-align:left;"><span class="fw-bold">Gemini AI đang tiến hành phân tích ma trận điểm số...</span></div>`;
+    window.scrollTo({ top: document.getElementById('boxAI').offsetTop - 100, behavior: 'smooth' });
 
     fetch(`/feature/${id}/ai-insight`, { method: 'POST' })
         .then(r => r.json())
         .then(data => {
-            if (data.status === 'ok') {
-                document.getElementById('aiContent').textContent = data.insight;
-            } else {
-                document.getElementById('aiContent').textContent = 'Lỗi kết nối máy chủ AI.';
-            }
+            document.getElementById('aiContent').textContent = data.insight;
+        })
+        .catch(err => {
+            document.getElementById('aiContent').textContent = 'Lỗi kết nối máy chủ AI.';
         });
 }
 
-// Mở form ra quyết định Approve/Reject/Adjust (US19, US21, US20)
-function openDecisionModal(id, action) {
+// Bật khối form ra quyết định Approve/Reject/Adjust
+function showDecisionBox(id, action, impact=0, confidence=0, effort=0) {
+    const box = document.getElementById('boxDecision');
     const form = document.getElementById('formDecision');
     form.action = `/feature/${id}/decision`;
     document.getElementById('inputDecision').value = action;
@@ -249,15 +238,19 @@ function openDecisionModal(id, action) {
     const adjustFields = document.getElementById('adjustFields');
     const title = document.getElementById('decisionTitle');
     
-    if (action === 'adjust') {
-        title.textContent = "Điều chỉnh thông số ma trận RICE";
-        adjustFields.classList.remove('d-none');
-    } else {
-        title.textContent = action === 'approved' ? "Phê duyệt tính năng vào Sprint Backlog" : "Từ chối tính năng (Deprioritized)";
-        adjustFields.classList.add('d-none');
-    }
+    box.classList.remove('d-none');
+    window.scrollTo({ top: box.offsetTop - 100, behavior: 'smooth' });
     
-    new Bootstrap.Modal(document.getElementById('modalDecision')).show();
+    if (action === 'adjust') {
+        title.textContent = "🛠️ Điều chỉnh thông số ma trận RICE";
+        adjustFields.classList.remove('d-none');
+        document.getElementById('adjImpact').value = impact;
+        document.getElementById('adjConfidence').value = confidence;
+        document.getElementById('adjEffort').value = effort;
+    } else {
+        title.textContent = action === 'approved' ? "✅ Phê duyệt tính năng vào Sprint Backlog" : "❌ Từ chối tính năng (Chuyển vào Deprioritized)";
+        adjustFields.add('d-none');
+    }
 }
 
 // Bấm nút hiện nhanh bảng hướng dẫn lý thuyết (US15)
@@ -270,3 +263,4 @@ document.getElementById('btnShowGuide').addEventListener('click', function() {
 });
 </script>
 {% endblock %}
+

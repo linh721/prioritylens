@@ -2,35 +2,32 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h2 class="fw-bold mb-0">Quản lý Phản hồi Người dùng</h2>
+        <h2 class="fw-bold" style="color: #1a202c; font-size: 1.6rem; margin-bottom: 4px;">Quản lý Phản hồi Người dùng</h2>
         <p class="text-muted mb-0">Thu thập, import dữ liệu và phân cụm tự động bằng công nghệ AI</p>
     </div>
     <div class="d-flex gap-2">
         {% if unanalyzed > 0 %}
-        <button id="btnAnalyze" class="btn btn-warning fw-bold text-dark shadow-sm">🤖 Phân tích AI ({{ unanalyzed }} mới)</button>
+        <button id="btnAnalyze" class="btn btn-warning">🤖 Phân tích AI ({{ unanalyzed }} mới)</button>
         {% endif %}
-        <button class="btn btn-success shadow-sm" data-bs-toggle="modal" data-bs-target="#modalAddFeedback">+ Thêm phản hồi lẻ</button>
     </div>
 </div>
 
 <!-- Bulk Import CSV Form -->
-<div class="card border-0 shadow-sm mb-4">
-    <div class="card-header bg-white fw-bold py-3">📊 Nhập dữ liệu phản hồi hàng loạt (CSV)</div>
-    <div class="card-body">
-        <form action="/feedback/import" method="POST" enctype="multipart/form-data" class="row g-3 align-items-center">
-            <div class="col-md-9">
-                <input class="form-control" type="file" name="csv_file" accept=".csv" required>
-                <div class="form-text small text-muted">File CSV yêu cầu chứa dòng tiêu đề có cột <strong>content</strong> và <strong>source</strong>.</div>
-            </div>
-            <div class="col-md-3">
-                <button type="submit" class="btn btn-primary w-100">📤 Tải lên & Import</button>
-            </div>
-        </form>
-    </div>
+<div class="card">
+    <div class="card-header">📊 Nhập dữ liệu phản hồi hàng loạt (CSV)</div>
+    <form action="/feedback/import" method="POST" enctype="multipart/form-data" class="row align-items-center">
+        <div class="col-md-9">
+            <input class="form-control" type="file" name="csv_file" accept=".csv" required>
+            <div class="text-muted small" style="margin-top: 5px;">File CSV yêu cầu chứa dòng tiêu đề có cột <strong>content</strong> và <strong>source</strong>.</div>
+        </div>
+        <div class="col-md-3">
+            <button type="submit" class="btn btn-primary w-100">📤 Tải lên & Import</button>
+        </div>
+    </form>
 </div>
 
 <!-- Filters -->
-<div class="card border-0 shadow-sm mb-4 p-3 bg-white">
+<div class="card">
     <form method="GET" action="/feedback" class="row g-2">
         <div class="col-md-4">
             <select name="source" class="form-select">
@@ -55,87 +52,48 @@
 </div>
 
 <!-- Feedback Table -->
-<div class="card border-0 shadow-sm">
-    <div class="card-header bg-white fw-bold py-3">{{ feedbacks|length }} Phản hồi ghi nhận hệ thống</div>
-    <div class="card-body p-0">
-        {% if feedbacks %}
-        <table class="table table-hover align-middle mb-0 table-sm">
-            <thead class="table-light">
-                <tr>
-                    <th style="width: 50%;">Nội dung phản hồi</th>
-                    <th>Nguồn</th>
-                    <th>Cảm xúc (AI)</th>
-                    <th>Chủ đề gom cụm (AI)</th>
-                    <th>Thời gian</th>
-                    <th>Thao tác</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for fb in feedbacks %}
-                <tr>
-                    <td class="small">{{ fb.content }}</td>
-                    <td>
-                        <span class="badge bg-opacity-25 {% if fb.source == 'merchant' %}bg-primary text-primary{% elif fb.source == 'user' %}bg-success text-success{% else %}bg-danger text-danger{% endif %}">
-                            {{ fb.source }}
-                        </span>
-                    </td>
-                    <td>
-                        {% if fb.sentiment == 'positive' %}
-                            <span class="badge bg-success">Tích cực</span>
-                        {% elif fb.sentiment == 'negative' %}
-                            <span class="badge bg-danger">Tiêu cực</span>
-                        {% elif fb.sentiment == 'neutral' %}
-                            <span class="badge bg-secondary">Trung tính</span>
-                        {% else %}
-                            <span class="badge bg-warning text-dark">Chưa phân tích</span>
-                        {% endif %}
-                    </td>
-                    <td><span class="text-primary fw-medium small">{{ fb.topic or '—' }}</span></td>
-                    <td class="text-muted small">{{ fb.created_at.strftime('%d/%m/%Y') }}</td>
-                    <td>
-                        <form action="/feedback/delete/{{ fb.id }}" method="POST" onsubmit="return confirm('Xóa phản hồi này?')">
-                            <button type="submit" class="btn btn-sm btn-link text-danger p-0">Xóa</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <div class="text-center py-5 text-muted">Chưa có phản hồi nào trong cơ sở dữ liệu. Hãy tải file CSV hoặc thêm thủ công.</div>
-        {% endif %}
-    </div>
-</div>
-
-
-<!-- Modal Add Single Feedback -->
-<div class="modal fade" id="modalAddFeedback" tabindex="-1">
-    <div class="modal-dialog">
-        <form action="/feedback/add" method="POST" class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title fw-bold">📥 Thêm phản hồi mới lẻ</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">Nguồn phản hồi</label>
-                    <select name="source" class="form-select">
-                        <option value="merchant">Merchant (Nhà bán hàng)</option>
-                        <option value="user">Người dùng (App Store / Play Store)</option>
-                        <option value="support">Phiếu hỗ trợ kỹ thuật CSKH</option>
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">Nội dung phản hồi *</label>
-                    <textarea name="content" class="form-control" rows="4" placeholder="Nhập ý kiến người dùng..." required></textarea>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                <button type="submit" class="btn btn-success">Lưu dữ liệu</button>
-            </div>
-        </form>
-    </div>
+<div class="card">
+    <div class="card-header">{{ feedbacks|length }} Phản hồi ghi nhận hệ thống</div>
+    {% if feedbacks %}
+    <table class="table table-hover">
+        <thead class="table-light">
+            <tr>
+                <th style="width: 50%;">Nội dung phản hồi</th>
+                <th>Nguồn</th>
+                <th>Cảm xúc (AI)</th>
+                <th>Chủ đề gom cụm (AI)</th>
+                <th>Thời gian</th>
+                <th class="text-end">Thao tác</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for fb in feedbacks %}
+            <tr>
+                <td class="small" style="line-height: 1.4;">{{ fb.content }}</td>
+                <td><span class="badge bg-primary">{{ fb.source }}</span></td>
+                <td>
+                    {% if fb.sentiment == 'positive' %}
+                        <span class="badge bg-success">Tích cực</span>
+                    {% elif fb.sentiment == 'negative' %}
+                        <span class="badge bg-danger">Tiêu cực</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Trung tính</span>
+                    {% endif %}
+                </td>
+                <td><span class="fw-bold small" style="color:#a50064;">{{ fb.topic or '—' }}</span></td>
+                <td class="text-muted small">{{ fb.created_at.strftime('%d/%m/%Y') }}</td>
+                <td class="text-end">
+                    <form action="/feedback/delete/{{ fb.id }}" method="POST" onsubmit="return confirm('Xóa phản hồi này?')" style="display:inline;">
+                        <button type="submit" class="btn btn-danger btn-sm" style="padding: 3px 8px !important; font-size: 0.75rem !important;">Xóa</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="text-center text-muted" style="padding: 40px 0;">Chưa có phản hồi nào trong cơ sở dữ liệu. Hãy tải file CSV để kiểm thử.</div>
+    {% endif %}
 </div>
 {% endblock %}
 

@@ -5,50 +5,147 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PriorityLens — MoMo DSS</title>
     
-    <!-- Nhúng Bootstrap 5 (Render sẽ đọc link này siêu tốc khi chạy online) -->
-    <link href="https://jsdelivr.net" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    
-    <!-- Khối mã nhúng khẩn cấp: Giúp ép các khối xếp hàng ngang kể cả khi máy local mất mạng -->
+    <!-- KHỐI MÃ FRAMEWORK TOÀN DIỆN: ÉP PHÔNG CHỮ VÀ CĂN LỀ ĐẸP TRÊN MỌI MÁY -->
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; }
-        .navbar-dark { background-color: #a50064 !important; } /* Màu hồng MoMo */
-        .card { border-radius: 12px; transition: transform 0.2s; border: none; box-shadow: 0 .125rem .25rem rgba(0,0,0,0.075)!important; }
-        .badge-momo { background-color: #e0007a; color: white; }
+        * { box-sizing: border-box !important; }
         
-        /* Cứu cánh cho Local: Ép trình duyệt dùng Flexbox xếp ngang khi mất kết nối Bootstrap */
-        .row { display: flex !important; flex-wrap: wrap !important; }
-        .col-md-3 { flex: 0 0 25% !important; max-width: 25% !important; }
-        .col-md-4 { flex: 0 0 33.333% !important; max-width: 33.333% !important; }
-        .col-md-6 { flex: 0 0 50% !important; max-width: 50% !important; }
-        .col-md-9 { flex: 0 0 75% !important; max-width: 75% !important; }
+        /* Ép buộc toàn bộ trang web sử dụng font chữ hiện đại, không dùng font mặc định thô */
+        body, html, h2, h5, a, span, table, th, td, p, button, input, select, textarea { 
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif !important; 
+            font-size: 0.94rem;
+            color: #333;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Căn lề tổng thể cho trang web: Đẩy nội dung ra giữa, cách lề trái/phải rộng rãi */
+        .container { 
+            width: 100% !important; 
+            max-width: 1200px !important; 
+            margin: 0 auto !important; 
+            padding: 30px 25px !important; 
+            background: transparent !important;
+        }
+
+        /* Thanh menu màu hồng MoMo chuẩn cao cấp, cách lề hai bên rộng rãi */
+        .navbar-momo { 
+            background-color: #a50064 !important; 
+            padding: 15px 40px !important; 
+            display: flex !important; 
+            justify-content: space-between !important; 
+            align-items: center !important; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important;
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 1000 !important;
+        }
+        .navbar-brand { 
+            font-weight: 700 !important; 
+            font-size: 1.35rem !important; 
+            color: #ffffff !important; 
+            text-decoration: none !important; 
+            background: transparent !important;
+        }
+        .navbar-nav { 
+            display: flex !important; 
+            gap: 15px !important; 
+            align-items: center !important;
+            background: transparent !important;
+        }
+        
+        /* Sửa lỗi chữ link bị xanh/tím: Ép chữ màu trắng tinh, bo tròn nút điều hướng */
+        .nav-link { 
+            color: rgba(255,255,255,0.85) !important; 
+            text-decoration: none !important; 
+            padding: 8px 16px !important; 
+            border-radius: 20px !important; 
+            transition: all 0.2s !important;
+            background: transparent !important;
+            display: inline-block !important;
+        }
+        .nav-link:hover, .nav-link.fw-bold { 
+            color: #ffffff !important; 
+            background-color: rgba(255,255,255,0.2) !important; 
+            font-weight: 600 !important; 
+        }
+        
+        /* Cấu trúc chia hàng cột Grid (Ép buộc xếp hàng ngang thẳng tắp) */
+        .row { display: flex !important; flex-wrap: wrap !important; margin-right: -12px !important; margin-left: -12px !important; background: transparent !important;}
+        .col-md-3 { flex: 0 0 25% !important; max-width: 25% !important; padding: 0 12px !important; background: transparent !important;}
+        .col-md-4 { flex: 0 0 33.333% !important; max-width: 33.333% !important; padding: 0 12px !important; background: transparent !important;}
+        .col-md-6 { flex: 0 0 50% !important; max-width: 50% !important; padding: 0 12px !important; background: transparent !important;}
+        .col-md-9 { flex: 0 0 75% !important; max-width: 75% !important; padding: 0 12px !important; background: transparent !important;}
+        
+        /* Khối thiết kế thẻ trắng (Card) bo góc mịn màng */
+        .card { background-color: #ffffff !important; border-radius: 12px !important; padding: 24px !important; margin-bottom: 24px !important; border: 1px solid #edf2f9 !important; box-shadow: 0 4px 6px rgba(0,0,0,0.02) !important; }
+        .card * { background-color: transparent !important; }
+        .card-header { font-weight: 700 !important; padding-bottom: 15px !important; margin-bottom: 15px !important; border-bottom: 1px solid #edf2f9 !important; font-size: 1.05rem !important; color: #495057 !important; }
+        
+        /* Nút bấm Bootstrap chuẩn */
+        .btn { display: inline-block !important; font-weight: 600 !important; text-align: center !important; vertical-align: middle !important; cursor: pointer !important; border: 1px solid transparent !important; padding: 10px 20px !important; font-size: 0.88rem !important; border-radius: 8px !important; text-decoration: none !important; transition: all 0.2s !important; }
+        .btn-sm { padding: 5px 12px !important; font-size: 0.8rem !important; border-radius: 6px !important; }
+        .btn-primary { background-color: #0d6efd !important; color: #fff !important; }
+        .btn-success { background-color: #198754 !important; color: #fff !important; }
+        .btn-warning { background-color: #ffc107 !important; color: #212529 !important; }
+        .btn-danger { background-color: #dc3545 !important; color: #fff !important; }
+        .btn-secondary { background-color: #6c757d !important; color: #fff !important; }
+        .w-100 { width: 100% !important; }
+        
+        /* Bảng danh sách dữ liệu */
+        .table { width: 100% !important; margin-bottom: 1rem !important; border-collapse: collapse !important; background-color: #fff !important; }
+        .table * { background-color: transparent !important; }
+        .table th, .table td { padding: 12px !important; vertical-align: middle !important; border-bottom: 1px solid #dee2e6 !important; text-align: left !important; }
+        .table-light { background-color: #f8f9fa !important; font-weight: 700 !important; color: #495057 !important; }
+        
+        /* Tiện ích định dạng nhanh */
+        .badge { display: inline-block !important; padding: 5px 10px !important; font-size: 0.75rem !important; font-weight: 700 !important; border-radius: 6px !important; text-align: center !important; }
+        .bg-success { background-color: #d1e7dd !important; color: #0f5132 !important; }
+        .bg-danger { background-color: #f8d7da !important; color: #842029 !important; border: none !important; }
+        .bg-secondary { background-color: #e2e3e5 !important; color: #41464b !important; }
+        .bg-primary { background-color: #cfe2ff !important; color: #084298 !important; }
+        .bg-warning { background-color: #fff3cd !important; color: #664d03 !important; }
+        .badge-momo { background-color: #e0007a !important; color: #fff !important; font-size: 1.1rem !important; padding: 6px 14px !important; border-radius: 8px !important; }
+        
+        .form-control, .form-select { display: block !important; width: 100% !important; padding: 10px 14px !important; font-size: 0.9rem !important; color: #495057 !important; background-color: #fff !important; border: 1px solid #ced4da !important; border-radius: 8px !important; }
+        .alert { padding: 15px 20px !important; margin-bottom: 24px !important; border: 1px solid #badbcc !important; border-radius: 8px !important; background-color: #d1e7dd !important; color: #0f5132 !important; }
+        .text-muted { color: #6c757d !important; }
+        .small { font-size: 0.84rem !important; }
+        .fw-bold { font-weight: 700 !important; }
+        .d-none { display: none !important; }
+        .d-flex { display: flex !important; }
+        .justify-content-between { justify-content: space-between !important; }
+        .align-items-center { align-items: center !important; }
+        .mb-4 { margin-bottom: 1.8rem !important; }
+        .mb-0 { margin-bottom: 0 !important; }
+        .gap-2 { gap: 8px !important; }
+        .gap-3 { gap: 15px !important; }
     </style>
 </head>
 <body>
 
-<nav class="navbar navbar-expand-lg navbar-dark px-4 mb-4 shadow-sm">
-    <div class="container-fluid">
-        <a class="navbar-brand fw-bold text-white" style="text-decoration:none;" href="/">🔍 PriorityLens MoMo</a>
-        <div class="navbar-nav me-auto flex-row gap-3">
-            <a class="nav-link text-white {% if request.path == '/' %}fw-bold{% endif %}" href="/">Dashboard</a>
-            <a class="nav-link text-white {% if '/feedback' in request.path %}fw-bold{% endif %}" href="/feedback">Phản hồi</a>
-            <a class="nav-link text-white {% if '/backlog' in request.path %}fw-bold{% endif %}" href="/backlog">Backlog</a>
-            <a class="nav-link text-white {% if '/behavior' in request.path %}fw-bold{% endif %}" href="/behavior">Hành vi</a>
-        </div>
-        {% if current_user.is_authenticated %}
-        <div class="d-flex align-items-center gap-3">
-            <span class="text-white small">👤 <strong>{{ current_user.username }}</strong> <span class="badge bg-light text-dark ms-1">{{ current_user.role }}</span></span>
-            <a href="/logout" class="btn btn-sm btn-outline-light rounded-pill px-3">Đăng xuất</a>
-        </div>
-        {% endif %}
+<!-- Thanh điều hướng cấu trúc hoàn mỹ -->
+<div class="navbar-momo">
+    <a class="navbar-brand" href="/">🔍 PriorityLens MoMo</a>
+    <div class="navbar-nav">
+        <a class="nav-link {% if request.path == '/' %}fw-bold{% endif %}" href="/">Dashboard</a>
+        <a class="nav-link {% if '/feedback' in request.path %}fw-bold{% endif %}" href="/feedback">Phản hồi</a>
+        <a class="nav-link {% if '/backlog' in request.path %}fw-bold{% endif %}" href="/backlog">Backlog</a>
+        <a class="nav-link {% if '/behavior' in request.path %}fw-bold{% endif %}" href="/behavior">Hành vi</a>
     </div>
-</nav>
+    {% if current_user.is_authenticated %}
+    <div style="display: flex; align-items: center; gap: 15px; background: transparent;">
+        <span class="small" style="color: #ffffff; background: transparent;">👤 <strong>{{ current_user.username }}</strong> <span class="badge" style="background-color:rgba(255,255,255,0.25); color:#fff; margin-left: 5px;">{{ current_user.role }}</span></span>
+        <a href="/logout" class="btn btn-secondary btn-sm">Đăng xuất</a>
+    </div>
+    {% endif %}
+</div>
 
-<div class="container pb-5">
+<div class="container">
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
-                <div class="alert alert-success shadow-sm" role="alert">{{ message }}</div>
+                <div class="alert shadow-sm">{{ message }}</div>
             {% endfor %}
         {% endif %}
     {% endwith %}
@@ -56,7 +153,6 @@
     {% block content %}{% endblock %}
 </div>
 
-<script src="https://jsdelivr.net"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>
