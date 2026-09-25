@@ -14,7 +14,17 @@ client = genai.Client()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///prioritylens.db'
+database_url = os.getenv('DATABASE_URL', '')
+
+if database_url:
+    # Render trả về URL bắt đầu bằng postgres://, cần đổi thành postgresql:// để SQLAlchemy hiểu
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+else:
+    # Tự động dùng file SQLite khi bạn code offline ở máy tính (local)
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///prioritylens.db'
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
