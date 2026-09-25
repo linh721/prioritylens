@@ -7,9 +7,7 @@
     </div>
     <div class="d-flex gap-2">
         {% if unanalyzed > 0 %}
-        <button id="btnAnalyze" class="btn btn-warning fw-bold text-dark shadow-sm">
-            🤖 Phân tích AI ({{ unanalyzed }} mới)
-        </button>
+        <button id="btnAnalyze" class="btn btn-warning fw-bold text-dark shadow-sm">🤖 Phân tích AI ({{ unanalyzed }} mới)</button>
         {% endif %}
         <button class="btn btn-success shadow-sm" data-bs-toggle="modal" data-bs-target="#modalAddFeedback">+ Thêm phản hồi lẻ</button>
     </div>
@@ -22,7 +20,7 @@
         <form action="/feedback/import" method="POST" enctype="multipart/form-data" class="row g-3 align-items-center">
             <div class="col-md-9">
                 <input class="form-control" type="file" name="csv_file" accept=".csv" required>
-                <div class="form-text small text-muted">File CSV yêu cầu chứa dòng tiêu đề có cột <strong>content</strong> (nội dung) và <strong>source</strong> (nguồn: user/merchant/support).</div>
+                <div class="form-text small text-muted">File CSV yêu cầu chứa dòng tiêu đề có cột <strong>content</strong> và <strong>source</strong>.</div>
             </div>
             <div class="col-md-3">
                 <button type="submit" class="btn btn-primary w-100">📤 Tải lên & Import</button>
@@ -45,9 +43,9 @@
         <div class="col-md-4">
             <select name="sentiment" class="form-select">
                 <option value="">Tất cả trạng thái cảm xúc</option>
-                <option value="positive" {% if sentiment_filter == 'positive' %}selected{% endif %}>Tích cực (Positive)</option>
-                <option value="negative" {% if sentiment_filter == 'negative' %}selected{% endif %}>Tiêu cực (Negative)</option>
-                <option value="neutral" {% if sentiment_filter == 'neutral' %}selected{% endif %}>Trung tính (Neutral)</option>
+                <option value="positive" {% if sentiment_filter == 'positive' %}selected{% endif %}>Tích cực</option>
+                <option value="negative" {% if sentiment_filter == 'negative' %}selected{% endif %}>Tiêu cực</option>
+                <option value="neutral" {% if sentiment_filter == 'neutral' %}selected{% endif %}>Trung tính</option>
             </select>
         </div>
         <div class="col-md-4">
@@ -73,33 +71,6 @@
                 </tr>
             </thead>
             <tbody>
-                {% for fb in feedbacks %}
-                <tr>
-                    <td class="small">{{ fb.content }}</td>
-                    <td>
-                        <span class="badge bg-opacity-25 {% if fb.source == 'merchant' %}bg-primary text-primary{% elif fb.source == 'user' %}bg-success text-success{% else %}bg-danger text-danger{% endif %}">
-                            {{ fb.source }}
-                        </span>
-                    </td>
-                    <td>
-                        {% if fb.sentiment == 'positive' %}
-                            <span class="badge bg-success">Tích cực</span>
-                        {% elif fb.sentiment == 'negative' %}
-                            <span class="badge bg-danger">Tiêu cực</span>
-                        {% elif fb.sentiment == 'neutral' %}
-                            <span class="badge bg-secondary">Trung tính</span>
-                        {% else %}
-                            <span class="badge bg-warning text-dark">Chưa phân tích</span>
-                        {% endif %}
-                    </td>
-                    <td><span class="text-primary fw-medium small">{{ fb.topic or '—' }}</span></td>
-                    <td class="text-muted small">{{ fb.created_at.strftime('%d/%m/%Y') }}</td>
-                    <td>
-                        <form action="/feedback/delete/{{ fb.id }}" method="POST" onsubmit="return confirm('Xóa phản hồi này?')">
-                            <button type="submit" class="btn btn-sm btn-link text-danger p-0">Xóa</button>
-                        </form>
-                    </td>
-                </tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -138,7 +109,6 @@
         </form>
     </div>
 </div>
-
 {% endblock %}
 
 {% block scripts %}
@@ -148,17 +118,10 @@ if (btnAnalyze) {
     btnAnalyze.addEventListener('click', function() {
         btnAnalyze.disabled = true;
         btnAnalyze.textContent = '🤖 Đang chạy phân tích AI...';
-        
         fetch('/feedback/analyze', { method: 'POST' })
             .then(res => res.json())
-            .then(data => {
-                alert(data.message);
-                window.location.reload();
-            })
-            .catch(err => {
-                alert('Lỗi kết nối API AI');
-                window.location.reload();
-            });
+            .then(data => { alert(data.message); window.location.reload(); })
+            .catch(err => { alert('Lỗi kết nối API AI'); window.location.reload(); });
     });
 }
 </script>
