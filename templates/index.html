@@ -38,6 +38,7 @@
     <div class="card-header bg-white fw-bold py-3">🏆 Top tính năng ưu tiên cao nhất</div>
     <div class="card-body p-0">
         {% if top_features %}
+        <div class="table-scroll">
         <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
                 <tr>
@@ -64,6 +65,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
         {% else %}
         <div class="text-center py-5 text-muted">Chưa có tính năng nào được tính điểm trong backlog.</div>
         {% endif %}
@@ -89,7 +91,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="https://jsdelivr.net"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 fetch('/api/chart-data')
     .then(res => res.json())
