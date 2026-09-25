@@ -2,85 +2,101 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h2 class="mb-0">Quản lý phản hồi</h2>
-        <p class="text-muted mb-0">Thu thập và phân tích phản hồi từ merchant & người dùng</p>
+        <h2 class="fw-bold mb-0">Quản lý Phản hồi Người dùng</h2>
+        <p class="text-muted mb-0">Thu thập, import dữ liệu và phân cụm tự động bằng công nghệ AI</p>
     </div>
     <div class="d-flex gap-2">
         {% if unanalyzed > 0 %}
-        <button class="btn btn-warning" onclick="analyzeAll()">
+        <button id="btnAnalyze" class="btn btn-warning fw-bold text-dark shadow-sm">
             🤖 Phân tích AI ({{ unanalyzed }} mới)
         </button>
         {% endif %}
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addFeedbackModal">
-            + Thêm phản hồi
-        </button>
+        <button class="btn btn-success shadow-sm" data-bs-toggle="modal" data-bs-target="#modalAddFeedback">+ Thêm phản hồi lẻ</button>
     </div>
 </div>
 
-<!-- Bộ lọc -->
-<div class="card border-0 shadow-sm mb-3">
-    <div class="card-body py-2">
-        <form class="row g-2 align-items-center" method="GET">
-            <div class="col-auto">
-                <select name="source" class="form-select form-select-sm" onchange="this.form.submit()">
-                    <option value="">Tất cả nguồn</option>
-                    <option value="merchant" {% if source_filter=='merchant' %}selected{% endif %}>Merchant</option>
-                    <option value="user" {% if source_filter=='user' %}selected{% endif %}>Người dùng</option>
-                    <option value="support" {% if source_filter=='support' %}selected{% endif %}>Hỗ trợ</option>
-                </select>
+<!-- Bulk Import CSV Form -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white fw-bold py-3">📊 Nhập dữ liệu phản hồi hàng loạt (CSV)</div>
+    <div class="card-body">
+        <form action="/feedback/import" method="POST" enctype="multipart/form-data" class="row g-3 align-items-center">
+            <div class="col-md-9">
+                <input class="form-control" type="file" name="csv_file" accept=".csv" required>
+                <div class="form-text small text-muted">File CSV yêu cầu chứa dòng tiêu đề có cột <strong>content</strong> (nội dung) và <strong>source</strong> (nguồn: user/merchant/support).</div>
             </div>
-            <div class="col-auto">
-                <select name="sentiment" class="form-select form-select-sm" onchange="this.form.submit()">
-                    <option value="">Tất cả cảm xúc</option>
-                    <option value="negative" {% if sentiment_filter=='negative' %}selected{% endif %}>Tiêu cực</option>
-                    <option value="positive" {% if sentiment_filter=='positive' %}selected{% endif %}>Tích cực</option>
-                    <option value="neutral" {% if sentiment_filter=='neutral' %}selected{% endif %}>Trung tính</option>
-                </select>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-primary w-100">📤 Tải lên & Import</button>
             </div>
-            <div class="col-auto text-muted small">{{ feedbacks|length }} kết quả</div>
         </form>
     </div>
 </div>
 
-<!-- Danh sách feedback -->
+<!-- Filters -->
+<div class="card border-0 shadow-sm mb-4 p-3 bg-white">
+    <form method="GET" action="/feedback" class="row g-2">
+        <div class="col-md-4">
+            <select name="source" class="form-select">
+                <option value="">Tất cả nguồn dữ liệu</option>
+                <option value="merchant" {% if source_filter == 'merchant' %}selected{% endif %}>Merchant (Nhà bán hàng)</option>
+                <option value="user" {% if source_filter == 'user' %}selected{% endif %}>Người dùng cuối (App Store)</option>
+                <option value="support" {% if source_filter == 'support' %}selected{% endif %}>Phiếu hỗ trợ tổng đài</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <select name="sentiment" class="form-select">
+                <option value="">Tất cả trạng thái cảm xúc</option>
+                <option value="positive" {% if sentiment_filter == 'positive' %}selected{% endif %}>Tích cực (Positive)</option>
+                <option value="negative" {% if sentiment_filter == 'negative' %}selected{% endif %}>Tiêu cực (Negative)</option>
+                <option value="neutral" {% if sentiment_filter == 'neutral' %}selected{% endif %}>Trung tính (Neutral)</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <button type="submit" class="btn btn-secondary w-100">🔍 Lọc dữ liệu</button>
+        </div>
+    </form>
+</div>
+
+<!-- Feedback Table -->
 <div class="card border-0 shadow-sm">
+    <div class="card-header bg-white fw-bold py-3">{{ feedbacks|length }} Phản hồi ghi nhận hệ thống</div>
     <div class="card-body p-0">
         {% if feedbacks %}
-        <table class="table table-hover mb-0">
+        <table class="table table-hover align-middle mb-0 table-sm">
             <thead class="table-light">
                 <tr>
-                    <th>Nội dung</th>
+                    <th style="width: 50%;">Nội dung phản hồi</th>
                     <th>Nguồn</th>
-                    <th>Cảm xúc</th>
-                    <th>Chủ đề (AI)</th>
+                    <th>Cảm xúc (AI)</th>
+                    <th>Chủ đề gom cụm (AI)</th>
                     <th>Thời gian</th>
-                    <th></th>
+                    <th>Thao tác</th>
                 </tr>
             </thead>
             <tbody>
                 {% for fb in feedbacks %}
                 <tr>
-                    <td style="max-width:300px">{{ fb.content }}</td>
+                    <td class="small">{{ fb.content }}</td>
                     <td>
-                        <span class="badge bg-secondary">{{ fb.source }}</span>
+                        <span class="badge bg-opacity-25 {% if fb.source == 'merchant' %}bg-primary text-primary{% elif fb.source == 'user' %}bg-success text-success{% else %}bg-danger text-danger{% endif %}">
+                            {{ fb.source }}
+                        </span>
                     </td>
                     <td>
-                        {% if fb.sentiment == 'negative' %}
-                            <span class="badge bg-danger">Tiêu cực</span>
-                        {% elif fb.sentiment == 'positive' %}
+                        {% if fb.sentiment == 'positive' %}
                             <span class="badge bg-success">Tích cực</span>
+                        {% elif fb.sentiment == 'negative' %}
+                            <span class="badge bg-danger">Tiêu cực</span>
                         {% elif fb.sentiment == 'neutral' %}
                             <span class="badge bg-secondary">Trung tính</span>
                         {% else %}
-                            <span class="badge bg-light text-dark">Chưa phân tích</span>
+                            <span class="badge bg-warning text-dark">Chưa phân tích</span>
                         {% endif %}
                     </td>
-                    <td class="text-muted small">{{ fb.topic or '—' }}</td>
+                    <td><span class="text-primary fw-medium small">{{ fb.topic or '—' }}</span></td>
                     <td class="text-muted small">{{ fb.created_at.strftime('%d/%m/%Y') }}</td>
                     <td>
-                        <form method="POST" action="/feedback/delete/{{ fb.id }}"
-                              onsubmit="return confirm('Xóa phản hồi này?')">
-                            <button class="btn btn-sm btn-outline-danger">Xóa</button>
+                        <form action="/feedback/delete/{{ fb.id }}" method="POST" onsubmit="return confirm('Xóa phản hồi này?')">
+                            <button type="submit" class="btn btn-sm btn-link text-danger p-0">Xóa</button>
                         </form>
                     </td>
                 </tr>
@@ -88,67 +104,62 @@
             </tbody>
         </table>
         {% else %}
-        <div class="text-center py-5 text-muted">
-            <p>Chưa có phản hồi nào. Thêm phản hồi đầu tiên để bắt đầu.</p>
-        </div>
+        <div class="text-center py-5 text-muted">Chưa có phản hồi nào trong cơ sở dữ liệu. Hãy tải file CSV hoặc thêm thủ công.</div>
         {% endif %}
     </div>
 </div>
 
-<!-- Modal thêm feedback -->
-<div class="modal fade" id="addFeedbackModal" tabindex="-1">
+<!-- Modal Add Single Feedback -->
+<div class="modal fade" id="modalAddFeedback" tabindex="-1">
     <div class="modal-dialog">
-        <div class="modal-content">
+        <form action="/feedback/add" method="POST" class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Thêm phản hồi mới</h5>
+                <h5 class="modal-title fw-bold">📥 Thêm phản hồi mới lẻ</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" action="/feedback/add">
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Nguồn phản hồi</label>
-                        <select name="source" class="form-select">
-                            <option value="merchant">Merchant</option>
-                            <option value="user">Người dùng</option>
-                            <option value="support">Phiếu hỗ trợ</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Nội dung phản hồi</label>
-                        <textarea name="content" class="form-control" rows="4"
-                            placeholder="Nhập phản hồi từ merchant hoặc người dùng..." required></textarea>
-                    </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Nguồn phản hồi</label>
+                    <select name="source" class="form-select">
+                        <option value="merchant">Merchant (Nhà bán hàng)</option>
+                        <option value="user">Người dùng (App Store / Play Store)</option>
+                        <option value="support">Phiếu hỗ trợ kỹ thuật CSKH</option>
+                    </select>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                    <button type="submit" class="btn btn-primary">Thêm phản hồi</button>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Nội dung phản hồi *</label>
+                    <textarea name="content" class="form-control" rows="4" placeholder="Nhập ý kiến người dùng..." required></textarea>
                 </div>
-            </form>
-        </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn btn-success">Lưu dữ liệu</button>
+            </div>
+        </form>
     </div>
 </div>
+
 {% endblock %}
-<form method="POST" action="/feedback/import" enctype="multipart/form-data" class="d-inline">
-    <input type="file" name="csv_file" accept=".csv" class="form-control form-control-sm d-inline w-auto">
-    <button type="submit" class="btn btn-outline-secondary btn-sm">📂 Import CSV</button>
-</form>
+
 {% block scripts %}
 <script>
-function analyzeAll() {
-    const btn = event.target;
-    btn.disabled = true;
-    btn.textContent = '⏳ Đang phân tích...';
-
-    fetch('/feedback/analyze', { method: 'POST' })
-        .then(r => r.json())
-        .then(data => {
-            alert(data.message);
-            location.reload();
-        })
-        .catch(() => {
-            alert('Có lỗi xảy ra');
-            btn.disabled = false;
-        });
+const btnAnalyze = document.getElementById('btnAnalyze');
+if (btnAnalyze) {
+    btnAnalyze.addEventListener('click', function() {
+        btnAnalyze.disabled = true;
+        btnAnalyze.textContent = '🤖 Đang chạy phân tích AI...';
+        
+        fetch('/feedback/analyze', { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.message);
+                window.location.reload();
+            })
+            .catch(err => {
+                alert('Lỗi kết nối API AI');
+                window.location.reload();
+            });
+    });
 }
 </script>
 {% endblock %}

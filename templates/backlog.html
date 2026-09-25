@@ -2,205 +2,203 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h2 class="mb-0">Backlog ưu tiên</h2>
-        <p class="text-muted mb-0">Tính năng được xếp hạng theo điểm RICE</p>
+        <h2 class="fw-bold mb-0">Backlog Ưu tiên Tính năng</h2>
+        <p class="text-muted mb-0">Xếp hạng tính năng tự động theo mô hình Ma trận đa tiêu chí RICE Matrix</p>
     </div>
-    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addFeatureModal">
-        + Thêm tính năng
-    </button>
+    <div class="d-flex gap-2">
+        <a href="/backlog/export-csv" class="btn btn-outline-dark shadow-sm">📥 Xuất file CSV Roadmap</a>
+        <button class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#modalAddFeature">+ Tạo tính năng mới</button>
+    </div>
 </div>
 
-<!-- Tab filter -->
-<ul class="nav nav-tabs mb-3">
-    <li class="nav-item">
-        <a class="nav-link {% if status_filter=='backlog' %}active{% endif %}"
-           href="/backlog?status=backlog">
-            Backlog <span class="badge bg-warning text-dark">{{ all_status_count.backlog }}</span>
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link {% if status_filter=='approved' %}active{% endif %}"
-           href="/backlog?status=approved">
-            Đã duyệt <span class="badge bg-success">{{ all_status_count.approved }}</span>
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link {% if status_filter=='rejected' %}active{% endif %}"
-           href="/backlog?status=rejected">
-            Từ chối <span class="badge bg-danger">{{ all_status_count.rejected }}</span>
-        </a>
-    </li>
-</ul>
-
-<!-- Danh sách tính năng -->
-{% if features %}
-{% for feature in features %}
-<div class="card border-0 shadow-sm mb-3">
-    <div class="card-body">
-        <div class="row align-items-center">
-            <div class="col-md-5">
-                <div class="d-flex align-items-center gap-2">
-                    <span class="badge bg-primary fs-6">{{ feature.rice_score }}</span>
-                    <div>
-                        <strong>{{ feature.name }}</strong>
-                        {% if feature.confidence < 50 %}
-                        <span class="badge bg-warning text-dark ms-1">⚠️ Confidence thấp</span>
-                        {% endif %}
-                        <div class="text-muted small">{{ feature.description or 'Chưa có mô tả' }}</div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="row text-center">
-                    <div class="col-3">
-                        <div class="text-muted small">Reach</div>
-                        <strong>{{ feature.reach }}</strong>
-                    </div>
-                    <div class="col-3">
-                        <div class="text-muted small">Impact</div>
-                        <strong>{{ feature.impact }}</strong>
-                    </div>
-                    <div class="col-3">
-                        <div class="text-muted small">Confidence</div>
-                        <strong>{{ feature.confidence }}%</strong>
-                    </div>
-                    <div class="col-3">
-                        <div class="text-muted small">Effort</div>
-                        <strong>{{ feature.effort }}w</strong>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3 text-end">
-                {% if status_filter == 'backlog' %}
-                <button class="btn btn-sm btn-outline-secondary me-1"
-                    onclick="suggestRICE({{ feature.id }}, '{{ feature.name }}')">
-                    🤖 Gợi ý
-                </button>
-                <button class="btn btn-sm btn-success me-1"
-                    onclick="showDecision({{ feature.id }}, 'approved', '{{ feature.name }}')">
-                    Duyệt
-                </button>
-                <button class="btn btn-sm btn-danger"
-                    onclick="showDecision({{ feature.id }}, 'rejected', '{{ feature.name }}')">
-                    Từ chối
-                </button>
-                {% endif %}
-                {% if feature.decision_reason %}
-                <div class="text-muted small mt-1">💬 {{ feature.decision_reason[:50] }}...</div>
-                {% endif %}
-            </div>
+<!-- Thuật toán US25: Hộp quét phát hiện xung đột & khai gian dữ liệu -->
+<div id="conflictAlertBox" class="mb-4 d-none">
+    <div class="card border-0 shadow-sm border-start border-4 border-danger">
+        <div class="card-header bg-white fw-bold py-2 d-flex justify-content-between align-items-center">
+            <span class="text-danger">🛡️ Bộ kiểm toán DSS: Phát hiện xung đột & Bất thường dữ liệu</span>
+            <span id="conflictCount" class="badge bg-danger rounded-pill">0</span>
+        </div>
+        <div id="conflictList" class="card-body py-2 small">
+            <!-- Dữ liệu cảnh báo tự động chèn vào đây -->
         </div>
     </div>
 </div>
-{% endfor %}
 
-{% else %}
-<div class="text-center py-5 text-muted">
-    <p>Chưa có tính năng nào ở trạng thái này.</p>
+<!-- Tabs Status Filter -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="btn-group shadow-sm">
+        <a href="/backlog?status=backlog" class="btn btn-{% if status_filter == 'backlog' %}primary{% else %}light{% endif %} px-4">
+            📋 Chờ duyệt ({{ all_status_count.backlog }})
+        </a>
+        <a href="/backlog?status=approved" class="btn btn-{% if status_filter == 'approved' %}success{% else %}light{% endif %} px-4">
+            ✅ Đã phê duyệt ({{ all_status_count.approved }})
+        </a>
+        <a href="/backlog?status=rejected" class="btn btn-{% if status_filter == 'rejected' %}danger{% else %}light{% endif %} px-4">
+            ❌ Từ chối ({{ all_status_count.rejected }})
+        </a>
+    </div>
+    <button class="btn btn-sm btn-link text-secondary" id="btnShowGuide">ℹ️ Xem hướng dẫn chấm RICE</button>
 </div>
+
+<!-- Backlog Items -->
+{% if features %}
+    {% for feature in features %}
+    <div class="card border-0 shadow-sm mb-3 {% if feature.confidence < 50 %}border-start border-4 border-warning{% endif %}">
+        <div class="card-body">
+            <div class="row align-items-center g-3">
+                <div class="col-md-2 text-center border-end">
+                    <span class="text-muted small d-block mb-1">ĐIỂM RICE</span>
+                    <h2 class="fw-bold mb-0 {% if feature.rice_score > 0 %}text-success{% else %}text-muted{% endif %}">
+                        {{ feature.rice_score }}
+                    </h2>
+                </div>
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <h5 class="fw-bold mb-0 text-dark">{{ feature.name }}</h5>
+                        {% if feature.confidence < 50 %}
+                            <span class="badge bg-warning text-dark small">⚠️ Khóa điểm: Confidence &lt; 50%</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-muted small mb-2">{{ feature.description or 'Chưa có dữ liệu mô tả tính năng.' }}</p>
+                    
+                    <!-- RICE Params Badge -->
+                    <div class="d-flex gap-3 text-muted small bg-light p-2 rounded">
+                        <span>🚀 Reach: <strong>{{ feature.reach }}</strong></span>
+                        <span>🎯 Impact: <strong>{{ feature.impact }}</strong></span>
+                        <span>🎲 Confidence: <strong>{{ feature.confidence }}%</strong></span>
+                        <span>⏳ Effort: <strong>{{ feature.effort }}w</strong></span>
+                    </div>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    {% if status_filter == 'backlog' %}
+                    <div class="d-flex justify-content-md-end gap-2 mb-2">
+                        <button class="btn btn-sm btn-warning text-dark" onclick="openAIResponse({{ feature.id }})">🤖 AI Insight</button>
+                        <button class="btn btn-sm btn-success" onclick="openDecisionModal({{ feature.id }}, 'approved')">Approve</button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="openDecisionModal({{ feature.id }}, 'rejected')">Reject</button>
+                    </div>
+                    <button class="btn btn-sm btn-link text-secondary p-0" onclick="openDecisionModal({{ feature.id }}, 'adjust')">Điều chỉnh tham số</button>
+                    {% elif status_filter == 'approved' or status_filter == 'in_progress' or status_filter == 'done' %}
+                    <form action="/feature/{{ feature.id }}/status" method="POST" class="d-flex gap-2 justify-content-md-end">
+                        <select name="status" class="form-select form-select-sm w-auto">
+                            <option value="approved" {% if feature.status == 'approved' %}selected{% endif %}>Đã duyệt</option>
+                            <option value="in_progress" {% if feature.status == 'in_progress' %}selected{% endif %}>In Progress 🛠️</option>
+                            <option value="done" {% if feature.status == 'done' %}selected{% endif %}>Done 🎉</option>
+                        </select>
+                        <button type="submit" class="btn btn-sm btn-dark">Lưu</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            
+            {% if feature.decision_reason %}
+            <div class="mt-3 pt-2 border-top bg-opacity-10 small text-muted">
+                <strong>💬 Nhật ký lý do giải trình:</strong> {{ feature.decision_reason }}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+<div class="text-center py-5 card border-0 shadow-sm text-muted">Chưa có tính năng nào ở trạng thái này.</div>
 {% endif %}
 
-<!-- Modal thêm tính năng -->
-<div class="modal fade" id="addFeatureModal" tabindex="-1">
+<!-- Modal Add Feature -->
+<div class="modal fade" id="modalAddFeature" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form action="/feature/add" method="POST" class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">🚀 Thêm tính năng & Chấm điểm sơ bộ</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body row g-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Tên tính năng *</label>
+                    <input type="text" name="name" class="form-control" required placeholder="Ví dụ: Loa Soundbox báo thuế">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Reach (Số lượng tiếp cận/tháng)</label>
+                    <input type="number" name="reach" class="form-control" value="0" min="0">
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Mô tả tính năng</label>
+                    <textarea name="description" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Impact (Tác động: 1-5)</label>
+                    <select name="impact" class="form-select">
+                        <option value="1">1 — Rất thấp</option>
+                        <option value="2">2 — Thấp</option>
+                        <option value="3" selected>3 — Trung bình</option>
+                        <option value="4">4 — Cao</option>
+                        <option value="5">5 — Cực kỳ quan trọng</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Confidence (Độ tự tin: 0-100%)</label>
+                    <input type="number" name="confidence" class="form-control" value="80" min="0" max="100">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Effort (Người-Tuần phát triển)</label>
+                    <input type="number" name="effort" class="form-control" value="1" min="0.1" step="0.1">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn btn-primary">Thêm và tính điểm RICE</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Decision / Adjust Parameters -->
+<div class="modal fade" id="modalDecision" tabindex="-1">
+    <div class="modal-dialog">
+        <form id="formDecision" method="POST" class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="decisionTitle">Ghi nhận quyết định</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" name="decision" id="inputDecision">
+                
+                <!-- Khối hiển thị thêm nếu PO chọn hành động Adjust -->
+                <div id="adjustFields" class="d-none row g-2 mb-3 bg-light p-2 rounded">
+                    <div class="col-4">
+                        <label class="small fw-bold">Impact</label>
+                        <input type="number" name="impact" id="adjImpact" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-4">
+                        <label class="small fw-bold">Confidence %</label>
+                        <input type="number" name="confidence" id="adjConfidence" class="form-control form-control-sm">
+                    </div>
+                        <label class="small fw-bold">Effort (w)</label>
+                        <input type="number" name="effort" id="adjEffort" class="form-control form-control-sm" step="0.1">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Lý do quyết định giải trình (Bắt buộc theo US22) *</label>
+                    <textarea name="reason" class="form-control" rows="3" required placeholder="Ghi căn cứ dữ liệu để thuyết phục ban giám đốc..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn btn-dark">Xác nhận quyết định</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal AI Insight View -->
+<div class="modal fade" id="modalAI" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Thêm tính năng mới</h5>
+                <h5 class="modal-title fw-bold">🤖 Cố vấn AI cấp cao (Head of Product AI Insight)</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" action="/feature/add">
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Tên tính năng *</label>
-                        <input type="text" name="name" class="form-control" required
-                            placeholder="VD: Tối ưu luồng xác nhận đơn hàng">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Mô tả</label>
-                        <textarea name="description" class="form-control" rows="2"
-                            placeholder="Mô tả ngắn gọn vấn đề cần giải quyết"></textarea>
-                    </div>
-                    <hr>
-                    <p class="text-muted small">Nhập các giá trị RICE. Công thức: Điểm = (Reach × Impact × Confidence%) ÷ Effort</p>
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Reach — Số người dùng ảnh hưởng/tháng</label>
-                            <input type="number" name="reach" class="form-control"
-                                min="0" step="100" placeholder="VD: 5000" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Impact — Mức độ tác động (1–5)</label>
-                            <select name="impact" class="form-select" required>
-                                <option value="">Chọn mức độ</option>
-                                <option value="1">1 — Rất thấp</option>
-                                <option value="2">2 — Thấp</option>
-                                <option value="3">3 — Trung bình</option>
-                                <option value="4">4 — Cao</option>
-                                <option value="5">5 — Rất cao</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Confidence — Độ tin cậy (0–100%)</label>
-                            <input type="number" name="confidence" class="form-control"
-                                min="0" max="100" placeholder="VD: 80">
-                            <div class="form-text text-warning">⚠️ Nếu < 50% hệ thống sẽ cảnh báo chưa đủ dữ liệu</div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Effort — Số tuần phát triển</label>
-                            <input type="number" name="effort" class="form-control"
-                                min="0.5" step="0.5" placeholder="VD: 2">
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                    <button type="submit" class="btn btn-primary">Thêm và tính điểm RICE</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Modal quyết định -->
-<div class="modal fade" id="decisionModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="decisionTitle">Ra quyết định</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form method="POST" id="decisionForm">
-                <input type="hidden" name="decision" id="decisionType">
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Lý do quyết định <span class="text-danger">*</span></label>
-                        <textarea name="reason" class="form-control" rows="3" required
-                            placeholder="Ghi lý do để truy xuất sau này (bắt buộc)..."></textarea>
-                        <div class="form-text">Theo US22: Mọi quyết định phải có lý do được ghi lại.</div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                    <button type="submit" class="btn btn-primary" id="decisionBtn">Xác nhận</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Modal gợi ý RICE -->
-<div class="modal fade" id="suggestModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">🤖 Gemini gợi ý điểm RICE</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body" id="suggestContent">
-                <div class="text-center py-3">
-                    <div class="spinner-border text-primary"></div>
-                    <p class="mt-2">Đang phân tích...</p>
-                </div>
+            <div class="modal-body text-dark" style="white-space: pre-line;" id="aiContent">
+                Đang xử lý dữ liệu ma trận và lập báo cáo khuyến nghị...
             </div>
         </div>
     </div>
@@ -209,50 +207,66 @@
 
 {% block scripts %}
 <script>
-function showDecision(featureId, decision, featureName) {
-    document.getElementById('decisionTitle').textContent =
-        decision === 'approved' ? `✅ Phê duyệt: ${featureName}` : `❌ Từ chối: ${featureName}`;
-    document.getElementById('decisionType').value = decision;
-    document.getElementById('decisionForm').action = `/feature/${featureId}/decision`;
-    document.getElementById('decisionBtn').className =
-        decision === 'approved' ? 'btn btn-success' : 'btn btn-danger';
-    document.getElementById('decisionBtn').textContent =
-        decision === 'approved' ? 'Phê duyệt' : 'Từ chối';
-    new bootstrap.Modal(document.getElementById('decisionModal')).show();
-}
+// Chạy thuật toán tự động rà soát phát hiện gian lận/xung đột dữ liệu (US25)
+document.addEventListener("DOMContentLoaded", function() {
+    fetch('/api/conflict-detector')
+        .then(r => r.json())
+        .then(data => {
+            if (data.total_conflicts > 0) {
+                document.getElementById('conflictAlertBox').classList.remove('d-none');
+                document.getElementById('conflictCount').textContent = data.total_conflicts;
+                const container = document.getElementById('conflictList');
+                data.conflicts.forEach(c => {
+                    container.innerHTML += `<div class="py-1 text-${c.type}"><strong>${c.feature_name}:</strong> ${c.message}</div>`;
+                });
+            }
+        });
+});
 
-function suggestRICE(featureId, featureName) {
-    document.getElementById('suggestContent').innerHTML = `
-        <div class="text-center py-3">
-            <div class="spinner-border text-primary"></div>
-            <p class="mt-2">Gemini đang phân tích phản hồi liên quan...</p>
-        </div>`;
-    new bootstrap.Modal(document.getElementById('suggestModal')).show();
+// Gọi AI Đưa ý kiến phân tích điểm số (US17)
+function openAIResponse(id) {
+    const modal = new Bootstrap.Modal(document.getElementById('modalAI'));
+    document.getElementById('aiContent').innerHTML = `<div class="text-center py-3"><div class="spinner-border text-primary"></div><p class="mt-2">Gemini AI đang audit ma trận điểm số...</p></div>`;
+    modal.show();
 
-    fetch(`/feature/${featureId}/suggest`, { method: 'POST' })
+    fetch(`/feature/${id}/ai-insight`, { method: 'POST' })
         .then(r => r.json())
         .then(data => {
             if (data.status === 'ok') {
-                const s = data.suggestion;
-                document.getElementById('suggestContent').innerHTML = `
-                    <div class="alert alert-info">${s.reasoning}</div>
-                    <table class="table">
-                        <tr><td>Reach</td><td><strong>${s.reach}</strong></td></tr>
-                        <tr><td>Impact</td><td><strong>${s.impact}/5</strong></td></tr>
-                        <tr><td>Confidence</td><td><strong>${s.confidence}%</strong></td></tr>
-                        <tr><td>Effort</td><td><strong>${s.effort} tuần</strong></td></tr>
-                        <tr><td>Điểm RICE ước tính</td>
-                            <td><strong class="text-primary fs-5">
-                                ${Math.round((s.reach * s.impact * s.confidence/100) / s.effort * 100)/100}
-                            </strong></td>
-                        </tr>
-                    </table>
-                    <p class="text-muted small">Đây là gợi ý của AI. PO cần xem xét và điều chỉnh trước khi áp dụng.</p>`;
+                document.getElementById('aiContent').textContent = data.insight;
             } else {
-                document.getElementById('suggestContent').innerHTML =
-                    `<div class="alert alert-danger">Lỗi: ${data.message}</div>`;
+                document.getElementById('aiContent').textContent = 'Lỗi kết nối máy chủ AI.';
             }
         });
 }
+
+// Mở form ra quyết định Approve/Reject/Adjust (US19, US21, US20)
+function openDecisionModal(id, action) {
+    const form = document.getElementById('formDecision');
+    form.action = `/feature/${id}/decision`;
+    document.getElementById('inputDecision').value = action;
+    
+    const adjustFields = document.getElementById('adjustFields');
+    const title = document.getElementById('decisionTitle');
+    
+    if (action === 'adjust') {
+        title.textContent = "Điều chỉnh thông số ma trận RICE";
+        adjustFields.classList.remove('d-none');
+    } else {
+        title.textContent = action === 'approved' ? "Phê duyệt tính năng vào Sprint Backlog" : "Từ chối tính năng (Deprioritized)";
+        adjustFields.classList.add('d-none');
+    }
+    
+    new Bootstrap.Modal(document.getElementById('modalDecision')).show();
+}
+
+// Bấm nút hiện nhanh bảng hướng dẫn lý thuyết (US15)
+document.getElementById('btnShowGuide').addEventListener('click', function() {
+    fetch('/api/rice-guidelines')
+        .then(r => r.json())
+        .then(data => {
+            alert(`Khung tài liệu đào tạo RICE:\n\n- ${data.reach}\n- ${data.impact}\n- ${data.confidence}\n- ${data.effort}`);
+        });
+});
 </script>
 {% endblock %}

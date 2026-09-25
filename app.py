@@ -294,8 +294,17 @@ def feature_decision(id):
     else:
         feature.status = decision
 
-    # GIỮ NGUYÊN ĐOẠN NÀY CỦA BẠN:
+        # SỬA LẠI ĐOẠN CUỐI HÀM FEATURE_DECISION:
     feature.decision_reason = reason
+    
+    # US22 Bản đầy đủ: Lưu snapshot chi tiết vào bảng BehaviorLog để làm nhật ký giải trình với Head of Product
+    log_entry = BehaviorLog(
+        event_type=decision, # 'approved', 'rejected', 'adjust'
+        page='/backlog',
+        element=f"Feature: {feature.name} | RICE Snapshot: {feature.rice_score} (R:{feature.reach}/I:{feature.impact}/C:{feature.confidence}%/E:{feature.effort}) | Lý do: {reason}",
+        user_type=current_user.role # Ghi nhận chính xác ai là người bấm duyệt
+    )
+    db.session.add(log_entry)
     db.session.commit()
 
     labels = {'approved': 'Phê duyệt', 'rejected': 'Từ chối', 'adjust': 'Điều chỉnh'}
@@ -364,6 +373,70 @@ Trả về JSON (chỉ JSON, không giải thích):
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
 
+@app.route('/feature/<int:id>/ai-insight', methods=['POST'])
+@login_required
+def ai_insight(id):
+    """US17: AI phân tích chuyên sâu lý do điểm RICE và đưa ra đề xuất hành động cho PO MoMo"""
+    feature = Feature.query.get_or_404(id)
+    
+    try:
+        prompt = f"""Bạn là một Cố vấn trưởng quản lý sản phẩm (Head of Product) tại MoMo. 
+Hãy phân tích các tham số RICE hiện tại của tính năng sau và viết một báo cáo đánh giá ngắn gọn, thực tế:
+
+- Tên tính năng: {feature.name}
+- Mô tả: {feature.description or 'Chưa có mô tả'}
+- Điểm RICE hiện tại: {feature.rice_score} (Reach: {feature.reach}, Impact: {feature.impact}, Confidence: {feature.confidence}%, Effort: {feature.effort} tuần)
+
+Yêu cầu cấu trúc phản hồi bằng tiếng Việt:
+1. ĐÁNH GIÁ: Điểm số này phản ánh tính năng này thuộc nhóm nào (Ví dụ: "Quick Win" - làm nhanh ăn lớn, "Big Bet" - dự án lớn rủi ro cao, hoặc "Dự án tốn tài nguyên hiệu quả thấp").
+2. RỦI RO & CƠ HỘI: Nhận xét về chỉ số Confidence và Effort. Có cần tối ưu thiết kế để giảm tuần phát triển (Effort) xuống không?
+3. ĐỀ XUẤT HÀNH ĐỘNG: Gợi ý PO nên bấm Approve (Duyệt ngay vào Sprint), Reject (Từ chối) hay Adjust (Cần đi khảo sát thêm người dùng để tăng độ tự tin)."""
+
+        chat = client.chats.create(model="gemini-3.6-flash")
+        response = chat.send_message(prompt)
+        
+        return jsonify({
+            'status': 'ok',
+            'insight': response.text
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/conflict-detector')
+@login_required
+def conflict_detector():
+    """US25: Thuật toán rà soát tự động phát hiện các điểm số bất thường hoặc xung đột lợi ích giữa các tính năng"""
+    features = Feature.query.filter_by(status='backlog').all()
+    warnings = []
+    
+    for f in features:
+        # Kiểm tra số lượng feedback thực tế liên quan đến tên tính năng
+        feedback_count = Feedback.query.filter(Feedback.topic.ilike(f'%{f.name[:10]}%')).count()
+        
+        # Lỗi 1: Thổi phồng độ tự tin (Chấm Confidence cực cao nhưng không có bằng chứng dữ liệu thô)
+        if f.confidence >= 80 and feedback_count == 0:
+            warnings.append({
+                'feature_id': f.id,
+                'feature_name': f.name,
+                'type': 'danger',
+                'message': f'⚠️ Phát hiện thổi phồng dữ liệu: Độ tự tin chấm {f.confidence}% nhưng hệ thống không tìm thấy bất kỳ phản hồi người dùng nào liên quan để làm căn cứ.'
+            })
+            
+        # Lỗi 2: Tính năng quá nặng (Effort > 8 tuần) nhưng điểm Impact quá thấp (< 2)
+        if f.effort > 8 and f.impact <= 2:
+            warnings.append({
+                'feature_id': f.id,
+                'feature_name': f.name,
+                'type': 'warning',
+                'message': f'⚠️ Cảnh báo lãng phí nguồn lực: Tính năng tốn tới {f.effort} tuần phát triển nhưng hiệu quả cải thiện trải nghiệm (Impact) chỉ đạt {f.impact}/5.'
+            })
+            
+    return jsonify({
+        'status': 'ok',
+        'total_conflicts': len(warnings),
+        'conflicts': warnings
+    })
+
 # ─── THỐNG KÊ & THEO DÕI HÀNH VI (BEHAVIOR LOGS) ──────────────────────────────
 @app.route('/track', methods=['POST'])
 def track_behavior():
@@ -382,12 +455,19 @@ def track_behavior():
 @login_required
 def behavior_log():
     logs = BehaviorLog.query.order_by(BehaviorLog.created_at.desc()).limit(100).all()
-    dropout_count = BehaviorLog.query.filter_by(event_type='dropout').count()
+    
+    # Bổ sung đầy đủ các biến đếm để giao diện HTML hiển thị con số KPI
     click_count = BehaviorLog.query.filter_by(event_type='click').count()
+    dropout_count = BehaviorLog.query.filter_by(event_type='dropout').count()
+    pageview_count = BehaviorLog.query.filter_by(event_type='pageview').count()
+    total_count = BehaviorLog.query.count() # Tổng tất cả sự kiện
+    
     return render_template('behavior.html',
         logs=logs,
+        click_count=click_count,
         dropout_count=dropout_count,
-        click_count=click_count)
+        pageview_count=pageview_count,
+        total_count=total_count)
 
 @app.route('/api/chart-data')
 @login_required
@@ -411,6 +491,34 @@ def chart_data():
             'labels': ['Chờ duyệt', 'Đã duyệt', 'Từ chối'],
             'data': [backlog, approved, rejected],
             'colors': ['#0d6efd', '#198754', '#dc3545']
+        }
+    })
+@app.route('/api/behavior-chart')
+@login_required
+def behavior_chart_data():
+    """Bổ sung API xử lý dữ liệu biểu đồ cho file behavior.html (Sửa lỗi trống biểu đồ)"""
+    from sqlalchemy import func
+    
+    # 1. Thống kê top trang được truy cập nhiều nhất
+    page_stats = db.session.query(BehaviorLog.page, func.count(BehaviorLog.id))\
+        .group_by(BehaviorLog.page).order_by(func.count(BehaviorLog.id).desc()).limit(5).all()
+    
+    page_labels = [p[0] if p[0] else '/' for p in page_stats]
+    page_data = [p[1] for p in page_stats]
+    
+    # 2. Thống kê phân bố loại sự kiện
+    click_c = BehaviorLog.query.filter_by(event_type='click').count()
+    view_c = BehaviorLog.query.filter_by(event_type='pageview').count()
+    drop_c = BehaviorLog.query.filter_by(event_type='dropout').count()
+    
+    return jsonify({
+        'pages': {
+            'labels': page_labels,
+            'data': page_data
+        },
+        'events': {
+            'labels': ['Nhấp chuột (Click)', 'Xem trang (Pageview)', 'Thoát (Dropout)'],
+            'data': [click_c, view_c, drop_c]
         }
     })
 

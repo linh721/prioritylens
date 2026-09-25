@@ -1,54 +1,44 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h2 class="mb-0">Dashboard tổng quan</h2>
-        <p class="text-muted mb-0">Hệ thống hỗ trợ ra quyết định ưu tiên tính năng</p>
-    </div>
+<div class="mb-4">
+    <h2 class="fw-bold">Dashboard Tổng quan</h2>
+    <p class="text-muted">Hệ thống hỗ trợ ra quyết định ưu tiên tính năng sản phẩm dựa trên phản hồi dữ liệu</p>
 </div>
 
 <!-- KPI Cards -->
 <div class="row g-3 mb-4">
     <div class="col-md-3">
-        <div class="card border-0 shadow-sm text-center">
-            <div class="card-body py-4">
-                <h1 class="display-5 fw-bold text-primary">{{ total_feedback }}</h1>
-                <p class="text-muted mb-0">Phản hồi thu thập</p>
-            </div>
+        <div class="card border-0 shadow-sm bg-white text-center p-3">
+            <h2 class="fw-bold text-primary mb-1">{{ total_feedback }}</h2>
+            <span class="text-muted small">Phản hồi thu thập</span>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card border-0 shadow-sm text-center">
-            <div class="card-body py-4">
-                <h1 class="display-5 fw-bold text-warning">{{ pending }}</h1>
-                <p class="text-muted mb-0">Chờ ưu tiên</p>
-            </div>
+        <div class="card border-0 shadow-sm bg-white text-center p-3">
+            <h2 class="fw-bold text-warning mb-1">{{ pending }}</h2>
+            <span class="text-muted small">Chờ ưu tiên (Backlog)</span>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card border-0 shadow-sm text-center">
-            <div class="card-body py-4">
-                <h1 class="display-5 fw-bold text-success">{{ approved }}</h1>
-                <p class="text-muted mb-0">Đã phê duyệt</p>
-            </div>
+        <div class="card border-0 shadow-sm bg-white text-center p-3">
+            <h2 class="fw-bold text-success mb-1">{{ approved }}</h2>
+            <span class="text-muted small">Đã phê duyệt</span>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card border-0 shadow-sm text-center">
-            <div class="card-body py-4">
-                <h1 class="display-5 fw-bold text-danger">{{ rejected }}</h1>
-                <p class="text-muted mb-0">Đã từ chối</p>
-            </div>
+        <div class="card border-0 shadow-sm bg-white text-center p-3">
+            <h2 class="fw-bold text-danger mb-1">{{ rejected }}</h2>
+            <span class="text-muted small">Đã từ chối</span>
         </div>
     </div>
 </div>
 
-<!-- Top Features -->
+<!-- Top RICE Table -->
 <div class="card border-0 shadow-sm mb-4">
-    <div class="card-header bg-white fw-bold">🏆 Top tính năng ưu tiên cao nhất</div>
+    <div class="card-header bg-white fw-bold py-3">🏆 Top tính năng ưu tiên cao nhất</div>
     <div class="card-body p-0">
         {% if top_features %}
-        <table class="table table-hover mb-0">
+        <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
                 <tr>
                     <th>#</th>
@@ -63,76 +53,48 @@
             <tbody>
                 {% for f in top_features %}
                 <tr>
-                    <td class="text-muted">{{ loop.index }}</td>
+                    <td>{{ loop.index }}</td>
                     <td><strong>{{ f.name }}</strong></td>
                     <td>{{ f.reach }}</td>
-                    <td>{{ f.impact }}</td>
+                    <td><span class="badge bg-info text-dark">{{ f.impact }}</span></td>
                     <td>{{ f.confidence }}%</td>
                     <td>{{ f.effort }} tuần</td>
-                    <td><span class="badge bg-primary fs-6">{{ f.rice_score }}</span></td>
+                    <td><span class="badge badge-momo fw-bold fs-6">{{ f.rice_score }}</span></td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
         {% else %}
-        <div class="text-center py-5 text-muted">
-            <p>Chưa có tính năng nào trong backlog.</p>
-            <a href="/backlog" class="btn btn-primary">Thêm tính năng đầu tiên</a>
-        </div>
+        <div class="text-center py-5 text-muted">Chưa có tính năng nào được tính điểm trong backlog.</div>
         {% endif %}
     </div>
 </div>
 
-<!-- Quick Actions -->
-<div class="row g-3">
+<!-- Charts Section -->
+<div class="row g-4">
     <div class="col-md-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <h5>📥 Bước tiếp theo</h5>
-                <p class="text-muted">Thu thập phản hồi từ merchant và người dùng, sau đó để AI phân tích và gom nhóm.</p>
-                <a href="/feedback" class="btn btn-outline-primary">Quản lý phản hồi →</a>
-            </div>
+        <div class="card border-0 shadow-sm p-3">
+            <h5 class="fw-bold mb-3">📊 Phân bố cảm xúc phản hồi (User Sentiment)</h5>
+            <canvas id="sentimentChart" height="250"></canvas>
         </div>
     </div>
     <div class="col-md-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <h5>📊 Ưu tiên tính năng</h5>
-                <p class="text-muted">Xem backlog được xếp hạng theo điểm RICE và ra quyết định Approve / Reject.</p>
-                <a href="/backlog" class="btn btn-outline-dark">Xem Backlog →</a>
-            </div>
+        <div class="card border-0 shadow-sm p-3">
+            <h5 class="fw-bold mb-3">📈 Trạng thái phân bổ Backlog</h5>
+            <canvas id="backlogChart" height="250"></canvas>
         </div>
     </div>
 </div>
 
-<!-- Biểu đồ sentiment -->
-<div class="row g-3 mt-2">
-    <div class="col-md-6">
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white fw-bold">📊 Phân bố cảm xúc phản hồi</div>
-            <div class="card-body">
-                <canvas id="sentimentChart" height="200"></canvas>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6">
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white fw-bold">📈 Trạng thái backlog</div>
-            <div class="card-body">
-                <canvas id="backlogChart" height="200"></canvas>
-            </div>
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://jsdelivr.net"></script>
 <script>
 fetch('/api/chart-data')
-    .then(r => r.json())
+    .then(res => res.json())
     .then(data => {
-        // Sentiment chart
+        // Render Sơ đồ Cảm xúc phản hồi
         new Chart(document.getElementById('sentimentChart'), {
             type: 'doughnut',
             data: {
@@ -142,24 +104,21 @@ fetch('/api/chart-data')
                     backgroundColor: data.sentiment.colors
                 }]
             },
-            options: {
-                plugins: { legend: { position: 'bottom' } },
-                cutout: '60%'
-            }
+            options: { plugins: { legend: { position: 'bottom' } } }
         });
 
-        // Backlog chart
+        // Render Sơ đồ Trạng thái Backlog
         new Chart(document.getElementById('backlogChart'), {
             type: 'bar',
             data: {
                 labels: data.backlog.labels,
                 datasets: [{
-                    label: 'Số tính năng',
+                    label: 'Số lượng tính năng',
                     data: data.backlog.data,
                     backgroundColor: data.backlog.colors
                 }]
             },
-            options: {
+            options: { 
                 plugins: { legend: { display: false } },
                 scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
             }
