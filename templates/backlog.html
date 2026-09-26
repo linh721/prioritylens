@@ -1,4 +1,3 @@
-
 {% extends 'base.html' %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -56,6 +55,10 @@
         <div class="col-md-4" style="margin-bottom: 15px;">
             <label class="form-label fw-bold small" style="display:block; margin-bottom:5px; color:#4a5568;">Effort (Người-Tuần phát triển)</label>
             <input type="number" name="effort" class="form-control" value="1" min="0.1" step="0.1" style="width:100%; padding:10px; border-radius:8px; border:1px solid #cbd5e1;">
+        </div>
+        <div class="col-md-4" style="margin-bottom:15px;">
+            <label class="form-label fw-bold small">Squad</label>
+            <input type="text" name="squad" class="form-control" value="Core" placeholder="Core / Payment / Merchant...">
         </div>
         <div class="col-md-12 text-end" style="margin-top: 15px; text-align:right;">
             <button type="button" class="btn btn-secondary btn-sm" onclick="toggleElement('boxAddFeature')" style="padding:6px 14px; margin-right:5px; border-radius:6px; font-weight:600;">Hủy</button>
@@ -118,8 +121,10 @@
             ✅ Đã phê duyệt ({{ all_status_count.approved }})
         </a>
         <a href="/backlog?status=rejected" class="btn btn-sm {% if status_filter == 'rejected' %}btn-danger{% else %}btn-secondary{% endif %}" style="padding: 6px 16px !important; text-decoration:none; font-weight:600; border-radius:6px;">
-            ❌ Từ chối ({{ all_status_count.rejected }})
+            ❌ Deprioritized ({{ all_status_count.rejected }})
         </a>
+        <a href="/backlog?status=in_progress" class="btn btn-sm {% if status_filter == 'in_progress' %}btn-primary{% else %}btn-secondary{% endif %}">🛠 In Progress ({{ all_status_count.in_progress }})</a>
+        <a href="/backlog?status=done" class="btn btn-sm {% if status_filter == 'done' %}btn-success{% else %}btn-secondary{% endif %}">🎉 Done ({{ all_status_count.done }})</a>
     </div>
     <button class="btn btn-sm" id="btnShowGuide" style="color: #a50064; font-weight: 600; background: transparent; border: none; cursor: pointer; font-size:0.9rem;">💡 Xem hướng dẫn chấm RICE</button>
 </div>
@@ -172,6 +177,30 @@
             </div>
         </div>
         
+        <div class="d-flex gap-2" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; align-items:center;">
+            <form action="/feature/{{ feature.id }}/squad" method="POST" style="display:flex; gap:5px;">
+                <input name="squad" value="{{ squad_map.get(feature.id, 'Core') }}" class="form-control form-control-sm" style="width:140px;" placeholder="Squad">
+                <button class="btn btn-outline-secondary btn-sm">Squad</button>
+            </form>
+            {% if current_user.role == 'head_of_product' %}
+            <button type="button" class="btn btn-outline-dark btn-sm" onclick="showFeedback({{ feature.id }})">👀 Feedback gốc</button>
+            <button type="button" class="btn btn-outline-dark btn-sm" onclick="showHistory({{ feature.id }})">🧾 Lịch sử quyết định</button>
+            {% endif %}
+            {% if status_filter in ['approved','in_progress','done'] %}
+            <form action="/impact/{{ feature.id }}" method="POST" style="display:flex; gap:5px; align-items:center;">
+                <input type="number" name="actual_impact" min="1" max="5" step="1" class="form-control form-control-sm" style="width:100px;" placeholder="Actual 1-5" required>
+                <input type="text" name="note" class="form-control form-control-sm" style="width:190px;" placeholder="Ghi chú sau sprint">
+                <button class="btn btn-outline-success btn-sm">Ghi Impact thực tế</button>
+            </form>
+            {% endif %}
+            {% if status_filter == 'rejected' %}
+            <form action="/feature/{{ feature.id }}/restore" method="POST"><button class="btn btn-outline-primary btn-sm">↩ Khôi phục</button></form>
+            {% endif %}
+            {% if status_filter == 'backlog' %}
+            <form action="/feature/{{ feature.id }}/delete" method="POST" onsubmit="return confirm('Xóa tính năng này?')"><button class="btn btn-outline-danger btn-sm">🗑 Xóa</button></form>
+            {% endif %}
+        </div>
+
         {% if feature.decision_reason %}
         <div style="margin-top: 12px; padding-top: 8px; border-top: 1px dashed #e2e8f0; font-size: 0.82rem; color: #718096; text-align:left;">
             <strong>💬 Nhật ký lý do giải trình:</strong> {{ feature.decision_reason }}
@@ -251,7 +280,7 @@ function showDecisionBox(id, action, impact=0, confidence=0, effort=0) {
         document.getElementById('adjEffort').value = effort;
     } else {
         title.textContent = action === 'approved' ? "✅ Phê duyệt tính năng vào Sprint Backlog" : "❌ Từ chối tính năng (Chuyển vào Deprioritized)";
-        adjustFields.add('d-none');
+        adjustFields.classList.add('d-none');
     }
 }
 
@@ -263,5 +292,18 @@ document.getElementById('btnShowGuide').addEventListener('click', function() {
             alert(`Khung tài liệu đào tạo RICE:\n\n- ${data.reach}\n- ${data.impact}\n- ${data.confidence}\n- ${data.effort}`);
         });
 });
+
+function showFeedback(id) {
+    fetch(`/feature/${id}/feedback`).then(r=>r.json()).then(data=>{
+        const text = data.feedbacks.length ? data.feedbacks.map(f=>`#${f.id} [${f.source}] ${f.content}`).join('\n\n') : 'Chưa có feedback liên kết.';
+        alert(`Feedback gốc — ${data.feature}\n\n${text}`);
+    });
+}
+function showHistory(id) {
+    fetch(`/feature/${id}/history`).then(r=>r.json()).then(data=>{
+        const text = data.history.length ? data.history.map(x=>`${x.type.toUpperCase()} — ${x.user || 'unknown'} — ${new Date(x.at).toLocaleString('vi-VN')}\nLý do: ${x.reason}\nBefore: ${x.before}\nAfter: ${x.after}\nFeedback: ${x.feedback_ids}`).join('\n\n') : 'Chưa có lịch sử.';
+        alert(`Lịch sử quyết định — ${data.feature}\n\n${text}`);
+    });
+}
 </script>
 {% endblock %}
