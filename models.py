@@ -1,8 +1,12 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from flask_login import UserMixin
+import pytz 
 
 db = SQLAlchemy()
+
+def get_vn_time():
+    return datetime.now(pytz.timezone('Asia/Ho_Chi_Minh')).replace(tzinfo=None)
 
 
 class Feedback(db.Model):
@@ -11,7 +15,7 @@ class Feedback(db.Model):
     source = db.Column(db.String(50), default='merchant')
     sentiment = db.Column(db.String(20))
     topic = db.Column(db.String(200))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=get_vn_time)
 
 
 class Feature(db.Model):
@@ -25,12 +29,9 @@ class Feature(db.Model):
     rice_score = db.Column(db.Float, default=0)
     status = db.Column(db.String(20), default='backlog')
     decision_reason = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(
-        db.DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow
-    )
+    created_at = db.Column(db.DateTime, default=get_vn_time)
+    updated_at = db.Column(db.DateTime, default=get_vn_time, onupdate=get_vn_time)
+
 
     def calculate_rice(self):
         if self.effort > 0 and self.confidence >= 50:
@@ -51,7 +52,7 @@ class BehaviorLog(db.Model):
     page = db.Column(db.String(100))
     element = db.Column(db.String(100))
     user_type = db.Column(db.String(50), default='merchant')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=get_vn_time)
 
 
 class User(UserMixin, db.Model):
@@ -59,7 +60,7 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
     role = db.Column(db.String(20), default='junior_po')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=get_vn_time)
 
 
 class FeatureFeedback(db.Model):
@@ -78,7 +79,7 @@ class FeatureFeedback(db.Model):
         nullable=False,
         index=True
     )
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=get_vn_time)
 
 
 class Decision(db.Model):
@@ -102,7 +103,7 @@ class Decision(db.Model):
     before_snapshot = db.Column(db.Text)
     after_snapshot = db.Column(db.Text)
     feedback_ids = db.Column(db.Text, default='')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=get_vn_time)
 
 
 class FeatureSquad(db.Model):
@@ -120,7 +121,7 @@ class FeatureSquad(db.Model):
         nullable=False,
         default='Core'
     )
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=get_vn_time)
 
 
 class ImpactFeedback(db.Model):
@@ -136,4 +137,4 @@ class ImpactFeedback(db.Model):
     estimated_impact = db.Column(db.Float, nullable=False)
     actual_impact = db.Column(db.Float, nullable=False)
     note = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=get_vn_time)
