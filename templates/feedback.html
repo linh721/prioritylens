@@ -1,3 +1,4 @@
+
 {% extends 'base.html' %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -12,19 +13,67 @@
     </div>
 </div>
 
+<!-- US01: Nhập phản hồi lẻ -->
+{% if current_user.role in ['squad_po', 'head_of_product'] %}
+<div class="card">
+    <div class="card-header">✍️ Nhập phản hồi mới</div>
+    <form action="/feedback/add" method="POST" class="row g-3">
+        <div class="col-md-8">
+            <label class="form-label fw-bold small">Nội dung phản hồi *</label>
+            <textarea name="content" class="form-control" rows="2" required placeholder="Nhập phản hồi của merchant/người dùng..."></textarea>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label fw-bold small">Nguồn *</label>
+            <select name="source" class="form-select" required>
+                <option value="merchant">Merchant</option>
+                <option value="user">Người dùng / App</option>
+                <option value="support">Phiếu hỗ trợ</option>
+            </select>
+        </div>
+        <div class="col-md-1 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary w-100">Thêm</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+
 <!-- Bulk Import CSV Form -->
 <div class="card">
     <div class="card-header">📊 Nhập dữ liệu phản hồi hàng loạt (CSV)</div>
     <form action="/feedback/import" method="POST" enctype="multipart/form-data" class="row align-items-center">
         <div class="col-md-9">
             <input class="form-control" type="file" name="csv_file" accept=".csv" required>
-            <div class="text-muted small" style="margin-top: 5px;">File CSV yêu cầu chứa dòng tiêu đề có cột <strong>content</strong> và <strong>source</strong>.</div>
+            <div class="text-muted small" style="margin-top: 5px;">CSV yêu cầu <strong>content</strong> + <strong>source</strong>; có thể thêm <strong>date</strong>. Hệ thống kiểm tra dòng lỗi và loại trùng nội dung.</div>
         </div>
         <div class="col-md-3">
             <button type="submit" class="btn btn-primary w-100">📤 Tải lên & Import</button>
         </div>
     </form>
 </div>
+
+<!-- US08–US10: Nhóm chủ đề / Feature Candidate -->
+{% if clusters %}
+<div class="card">
+    <div class="card-header">🧩 Nhóm chủ đề & Reach gợi ý</div>
+    <div class="row g-3">
+        {% for cluster in clusters %}
+        <div class="col-md-6 col-lg-4">
+            <div style="height:100%; padding:16px; border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc;">
+                <div class="fw-bold" style="color:#a50064;">{{ cluster.name }}</div>
+                <div class="small text-muted" style="margin-top:6px;">{{ cluster.count }} phản hồi</div>
+                <div class="small" style="margin-top:4px;">Reach gợi ý 30 ngày: <strong>{{ cluster.reach }}</strong></div>
+                {% if current_user.role in ['squad_po', 'head_of_product'] %}
+                <form action="/feature/from-topic" method="POST" style="margin-top:12px;">
+                    <input type="hidden" name="topic" value="{{ cluster.name }}">
+                    <button type="submit" class="btn btn-sm btn-outline-primary">Tạo Feature Candidate</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
 
 <!-- Filters -->
 <div class="card">

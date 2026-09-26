@@ -330,9 +330,61 @@
         {% endif %}
     {% endwith %}
 
-    {% block content %}{% endblock %}
+        {% block content %}{% endblock %}
 </div>
 
+<!-- NHÚNG JAVASCRIPT THƯ VIỆN BOOTSTRAP ĐỂ ĐIỀU KHIỂN LAYOUT -->
+<script>
+// 1. TỰ ĐỘNG GHI NHẬN XEM TRANG (PAGEVIEW)
+document.addEventListener("DOMContentLoaded", function() {
+    if (window.location.pathname !== '/behavior') {
+        fetch('/track', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                event_type: 'pageview',
+                page: window.location.pathname,
+                element: 'Xem giao diện trang'
+            })
+        });
+    }
+});
+
+// 2. TỰ ĐỘNG GHI NHẬN NHẤP CHUỘT (CLICK)
+document.addEventListener('click', function(e) {
+    const el = e.target.closest('button, a, [onclick], .btn, .card');
+    if (!el) return;
+    
+    let text = el.textContent ? el.textContent.trim().replace(/\s+/g, ' ') : '';
+    if (text.length > 50) text = text.substring(0, 50) + '...';
+    if (!text && el.name) text = el.name;
+
+    fetch('/track', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            event_type: 'click',
+            page: window.location.pathname,
+            element: text || 'Nút bấm ẩn danh'
+        })
+    });
+});
+
+// 3. TỰ ĐỘNG GHI NHẬN THOÁT TRANG (DROPOUT) — SỬA ĐỔI CHUẨN BLOB ĐỂ CHROME KHÔNG CHẶN
+window.addEventListener('blur', function() {
+    const data = JSON.stringify({
+        event_type: 'dropout',
+        page: window.location.pathname,
+        element: 'Rời màn hình ứng dụng'
+    });
+    
+    // Sử dụng đối tượng Blob định dạng application/json để vượt qua bộ lọc của Chrome
+    const blob = new Blob([data], { type: 'application/json' });
+    navigator.sendBeacon('/track', blob);
+});
+</script>
+
 {% block scripts %}{% endblock %}
+
 </body>
 </html>

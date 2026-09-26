@@ -2,121 +2,114 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h2 class="mb-0">Theo dõi hành vi người dùng</h2>
-        <p class="text-muted mb-0">Behavior Tracker — ghi lại thao tác trong hệ thống</p>
+        <h2 class="fw-bold" style="color: #1a202c; font-size: 1.6rem; margin-bottom: 4px;">Theo dõi hành vi người dùng</h2>
+        <p class="text-muted mb-0">Behavior Tracker — Hệ thống DSS ngầm giám sát, ghi vết và audit thao tác trong hệ thống</p>
     </div>
-    <form method="POST" action="/behavior/clear"
-          onsubmit="return confirm('Xóa toàn bộ log hành vi?')">
-        <button class="btn btn-outline-danger btn-sm">🗑 Xóa log</button>
+    <form method="POST" action="/behavior/clear" onsubmit="return confirm('Xóa toàn bộ nhật ký log hành vi đang lưu trong cơ sở dữ liệu?')">
+        <button type="submit" class="btn btn-danger btn-sm" style="padding: 6px 14px; font-weight: 600; border-radius: 6px;">🗑 Xóa log</button>
     </form>
 </div>
 
-<!-- KPI Cards -->
-<div class="row g-3 mb-4">
-    <div class="col-md-3">
-        <div class="card border-0 shadow-sm text-center">
-            <div class="card-body py-3">
-                <h2 class="fw-bold text-primary">{{ click_count }}</h2>
-                <p class="text-muted small mb-0">Tổng lượt click</p>
-            </div>
+<!-- KPI Cards cao cấp phân bổ ngang -->
+<div class="row mb-4" style="display: flex !important; flex-wrap: wrap !important; margin-right: -12px !important; margin-left: -12px !important;">
+    <div class="col-md-3" style="flex: 0 0 25% !important; max-width: 25% !important; padding: 0 12px !important;">
+        <div class="card text-center" style="border-top: 4px solid #0055d4 !important; padding: 20px; background-color:#fff; border-radius:12px; box-shadow: 0 4px 12px rgba(0,0,0,0.02) !important;">
+            <h1 class="fw-bold" style="color: #0055d4; font-size: 2rem; margin-bottom: 4px; margin-top:0;">{{ click_count }}</h1>
+            <span class="text-muted small fw-bold" style="font-size:0.75rem;">TỔNG LƯỢT CLICK</span>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card border-0 shadow-sm text-center">
-            <div class="card-body py-3">
-                <h2 class="fw-bold text-warning">{{ pageview_count }}</h2>
-                <p class="text-muted small mb-0">Lượt xem trang</p>
-            </div>
+    <div class="col-md-3" style="flex: 0 0 25% !important; max-width: 25% !important; padding: 0 12px !important;">
+        <div class="card text-center" style="border-top: 4px solid #008744 !important; padding: 20px; background-color:#fff; border-radius:12px; box-shadow: 0 4px 12px rgba(0,0,0,0.02) !important;">
+            <h1 class="fw-bold" style="color: #008744; font-size: 2rem; margin-bottom: 4px; margin-top:0;">{{ pageview_count }}</h1>
+            <span class="text-muted small fw-bold" style="font-size:0.75rem;">LƯỢT XEM TRANG</span>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card border-0 shadow-sm text-center">
-            <div class="card-body py-3">
-                <h2 class="fw-bold text-danger">{{ dropout_count }}</h2>
-                <p class="text-muted small mb-0">Lượt thoát trang</p>
-            </div>
+    <div class="col-md-3" style="flex: 0 0 25% !important; max-width: 25% !important; padding: 0 12px !important;">
+        <div class="card text-center" style="border-top: 4px solid #d62246 !important; padding: 20px; background-color:#fff; border-radius:12px; box-shadow: 0 4px 12px rgba(0,0,0,0.02) !important;">
+            <h1 class="fw-bold" style="color: #d62246; font-size: 2rem; margin-bottom: 4px; margin-top:0;">{{ dropout_count }}</h1>
+            <span class="text-muted small fw-bold" style="font-size:0.75rem;">LƯỢT THOÁT TRANG</span>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card border-0 shadow-sm text-center">
-            <div class="card-body py-3">
-                <h2 class="fw-bold text-success">{{ total_count }}</h2>
-                <p class="text-muted small mb-0">Tổng sự kiện</p>
-            </div>
+    <div class="col-md-3" style="flex: 0 0 25% !important; max-width: 25% !important; padding: 0 12px !important;">
+        <div class="card text-center" style="border-top: 4px solid #718096 !important; padding: 20px; background-color:#fff; border-radius:12px; box-shadow: 0 4px 12px rgba(0,0,0,0.02) !important;">
+            <h1 class="fw-bold" style="color: #718096; font-size: 2rem; margin-bottom: 4px; margin-top:0;">{{ total_count }}</h1>
+            <span class="text-muted small fw-bold" style="font-size:0.75rem;">TỔNG SỰ KIỆN</span>
         </div>
     </div>
 </div>
 
-<!-- Biểu đồ trang được truy cập nhiều nhất -->
-<div class="row g-3 mb-4">
-    <div class="col-md-6">
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white fw-bold">📊 Trang được truy cập nhiều nhất</div>
-            <div class="card-body">
-                <canvas id="pageChart" height="220"></canvas>
+<!-- Khung Đồ thị đôi xếp song song cố định -->
+<div class="row" style="margin-top: 24px; margin-bottom: 24px; display: flex !important; flex-wrap: wrap !important; margin-right: -12px !important; margin-left: -12px !important;">
+    <div class="col-md-6" style="flex: 0 0 50% !important; max-width: 50% !important; padding: 0 12px !important;">
+        <div class="card" style="padding: 20px; background-color: #fff; border-radius: 12px; border: 1px solid #eef2f6 !important; box-shadow: 0 4px 12px rgba(0,0,0,0.02) !important;">
+            <div class="fw-bold" style="font-size: 1.05rem; margin-bottom: 15px; color: #4a5568; border-bottom: 1px solid #edf2f9; padding-bottom: 10px;">📊 Trang được truy cập nhiều nhất</div>
+            <div style="height: 240px; position: relative;">
+                <canvas id="pageChart"></canvas>
             </div>
         </div>
     </div>
-    <div class="col-md-6">
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white fw-bold">🖱 Phân bố loại sự kiện</div>
-            <div class="card-body">
-                <canvas id="eventChart" height="220"></canvas>
+    <div class="col-md-6" style="flex: 0 0 50% !important; max-width: 50% !important; padding: 0 12px !important;">
+        <div class="card" style="padding: 20px; background-color: #fff; border-radius: 12px; border: 1px solid #eef2f6 !important; box-shadow: 0 4px 12px rgba(0,0,0,0.02) !important;">
+            <div class="fw-bold" style="font-size: 1.05rem; margin-bottom: 15px; color: #4a5568; border-bottom: 1px solid #edf2f9; padding-bottom: 10px;">🎯 Phân bố loại sự kiện tương tác</div>
+            <div style="height: 240px; display: flex; justify-content: center; align-items: center; position: relative;">
+                <canvas id="eventChart"></canvas>
             </div>
         </div>
     </div>
 </div>
 
 <!-- Bảng log chi tiết -->
-<div class="card border-0 shadow-sm">
-    <div class="card-header bg-white fw-bold d-flex justify-content-between">
-        <span>📋 Log hành vi gần nhất</span>
-        <span class="text-muted small fw-normal">Hiển thị 100 sự kiện mới nhất</span>
+<div class="card" style="padding: 0; overflow: hidden; border-radius: 12px; border: 1px solid #eef2f6 !important; background-color:#fff; box-shadow: 0 4px 12px rgba(0,0,0,0.02) !important;">
+    <div class="d-flex justify-content-between align-items-center" style="padding: 15px 20px; border-bottom: 1px solid #edf2f9; background-color: #f8fafc;">
+        <span class="fw-bold" style="color: #4a5568;">📋 Nhật ký Log thao tác thời gian thực</span>
+        <span class="text-muted small">Hiển thị 100 tác vụ gần nhất của hệ thống</span>
     </div>
-    <div class="card-body p-0">
+    <div class="p-0" style="padding: 0 !important;">
         {% if logs %}
-        <div style="max-height: 400px; overflow-y: auto; overflow-x: auto; -webkit-overflow-scrolling: touch;">
-            <table class="table table-hover table-sm mb-0">
-                <thead class="table-light sticky-top">
+        <div style="max-height: 400px; overflow-y: auto;">
+            <table class="table table-hover mb-0" style="width: 100%; border-collapse: collapse;">
+                <thead style="position: sticky; top: 0; z-index: 10; background-color: #f1f5f9;">
                     <tr>
-                        <th>Loại sự kiện</th>
-                        <th>Trang</th>
-                        <th>Phần tử</th>
-                        <th>Loại người dùng</th>
-                        <th>Thời gian</th>
+                        <th style="width: 15%; padding:12px; border-bottom:1px solid #dee2e6;">Loại sự kiện</th>
+                        <th style="width: 25%; padding:12px; border-bottom:1px solid #dee2e6;">Đường dẫn trang</th>
+                        <th style="width: 35%; padding:12px; border-bottom:1px solid #dee2e6;">Phần tử tương tác / Nội dung ghi vết</th>
+                        <th style="width: 13%; padding:12px; border-bottom:1px solid #dee2e6;">Người vận hành</th>
+                        <th style="width: 12%; padding:12px; border-bottom:1px solid #dee2e6; text-align: right;">Thời gian</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for log in logs %}
-                    <tr>
-                        <td>
+                    <tr style="background-color: #fff;">
+                        <td style="padding:12px; border-bottom:1px solid #edf2f9;">
                             {% if log.event_type == 'click' %}
-                                <span class="badge bg-primary">Click</span>
+                                <span class="badge" style="background-color: #cfe2ff; color: #084298;">Click</span>
                             {% elif log.event_type == 'dropout' %}
-                                <span class="badge bg-danger">Thoát</span>
+                                <span class="badge" style="background-color: #f8d7da; color: #842029;">Thoát</span>
                             {% elif log.event_type == 'pageview' %}
-                                <span class="badge bg-success">Xem trang</span>
+                                <span class="badge" style="background-color: #e6f4ea; color: #008744;">Xem trang</span>
+                            {% elif log.event_type == 'approved' %}
+                                <span class="badge" style="background-color: #e6f4ea; color: #008744; font-weight:bold;">Approved</span>
+                            {% elif log.event_type == 'rejected' %}
+                                <span class="badge" style="background-color: #fce8e6; color: #d62246; font-weight:bold;">Rejected</span>
                             {% else %}
                                 <span class="badge bg-secondary">{{ log.event_type }}</span>
                             {% endif %}
                         </td>
-                        <td class="text-muted small">{{ log.page or '—' }}</td>
-                        <td class="text-muted small">{{ log.element or '—' }}</td>
-                        <td>
-                            <span class="badge bg-light text-dark">{{ log.user_type }}</span>
+                        <td class="text-muted small fw-bold" style="padding:12px; border-bottom:1px solid #edf2f9;">{{ log.page or '/' }}</td>
+                        <td class="small" style="line-height: 1.4; color: #4a5568; padding:12px; border-bottom:1px solid #edf2f9;">{{ log.element or '—' }}</td>
+                        <td style="padding:12px; border-bottom:1px solid #edf2f9;">
+                            <span class="badge" style="background-color:#f1f5f9; color:#475569;">{{ log.user_type }}</span>
                         </td>
-                        <td class="text-muted small">
-                            {{ log.created_at.strftime('%d/%m %H:%M:%S') }}
-                        </td>
+                        <td class="text-muted small text-end" style="text-align: right; padding:12px; border-bottom:1px solid #edf2f9;">{{ log.created_at.strftime('%d/%m %H:%M:%S') }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
         {% else %}
-        <div class="text-center py-5 text-muted">
-            <p>Chưa có log hành vi nào được ghi nhận.</p>
-            <p class="small">Hệ thống sẽ tự động ghi lại khi người dùng thao tác trên các trang.</p>
+        <div class="text-center text-muted" style="padding: 60px 0; background-color:#fff;">
+            <p class="fw-bold mb-1" style="margin:0 0 5px 0;">Chưa có log hành vi nào được ghi nhận hệ thống.</p>
+            <p class="small mb-0 text-muted" style="margin:0;">Hệ thống AI và tập lệnh ngầm sẽ tự động ghi vết khi bạn bắt đầu di chuyển qua các trang.</p>
         </div>
         {% endif %}
     </div>
@@ -124,50 +117,55 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- Nhúng thư viện Chart.js trực tiếp tại file con để bảo đảm nạp thành công -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+// Gọi dữ liệu API từ Flask để kết xuất đồ thị
 fetch('/api/behavior-chart')
     .then(r => r.json())
     .then(data => {
-
-        // Biểu đồ trang truy cập
-        if (data.pages.labels.length > 0) {
+        // 1. Khởi tạo vẽ Biểu đồ thanh nằm ngang (Top trang)
+        if (data.pages && data.pages.labels && data.pages.labels.length > 0) {
             new Chart(document.getElementById('pageChart'), {
                 type: 'bar',
                 data: {
                     labels: data.pages.labels,
                     datasets: [{
-                        label: 'Số lượt',
                         data: data.pages.data,
-                        backgroundColor: '#0d6efd'
+                        backgroundColor: '#0055d4',
+                        borderRadius: 6
                     }]
                 },
                 options: {
                     indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } }
                 }
             });
         }
 
-        // Biểu đồ loại sự kiện
-        if (data.events.data.some(v => v > 0)) {
+        // 2. Khởi tạo vẽ Biểu đồ hình tròn (Phân bố sự kiện tương tác)
+        if (data.events && data.events.data) {
             new Chart(document.getElementById('eventChart'), {
                 type: 'doughnut',
                 data: {
                     labels: data.events.labels,
                     datasets: [{
                         data: data.events.data,
-                        backgroundColor: ['#0d6efd', '#198754', '#dc3545', '#ffc107']
+                        backgroundColor: ['#0055d4', '#008744', '#d62246']
                     }]
                 },
                 options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
                     plugins: { legend: { position: 'bottom' } },
-                    cutout: '55%'
+                    cutout: '65%'
                 }
             });
         }
     })
-    .catch(err => console.log('Chart error:', err));
+    .catch(err => console.error('Chart load error:', err));
 </script>
 {% endblock %}

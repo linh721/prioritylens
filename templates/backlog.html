@@ -1,3 +1,4 @@
+
 {% extends 'base.html' %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -147,6 +148,7 @@
                     <span>🎯 Impact: <strong style="color:#2d3748;">{{ feature.impact|int }}</strong></span>
                     <span>🎲 Confidence: <strong style="color:#2d3748;">{{ feature.confidence|int }}%</strong></span>
                     <span>⏳ Effort: <strong style="color:#2d3748;">{{ feature.effort }}w</strong></span>
+                    <span>💬 Feedback: <strong style="color:#2d3748;">{{ feedback_counts.get(feature.id, 0) }}</strong></span>
                 </div>
             </div>
             <div class="col-md-4 text-end" style="flex:0 0 33.333%; max-width:33.333%; text-align:right; padding-left:15px;">
