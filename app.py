@@ -472,30 +472,43 @@ def feature_decision(id):
 
     if decision == 'adjust':
         try:
+            new_reach = float(request.form.get('reach', feature.reach))
             new_impact = float(request.form.get('impact', feature.impact))
             new_confidence = float(request.form.get('confidence', feature.confidence))
             new_effort = float(request.form.get('effort', feature.effort))
-            if new_impact not in {1, 2, 3, 4, 5} or not (0 <= new_confidence <= 100) or new_effort <= 0:
+
+            if (
+                new_reach < 0
+                or new_impact not in {1, 2, 3, 4, 5}
+                or not (0 <= new_confidence <= 100)
+                or new_effort <= 0
+            ):
                 raise ValueError
+
+            feature.reach = new_reach
             feature.impact = new_impact
             feature.confidence = new_confidence
             feature.effort = new_effort
-            
-            # Khối chặn điểm RICE theo quy tắc BR3 của tài liệu PRD
+
+            # BR3: Confidence < 50% thì không tính RICE
             if feature.confidence >= 50:
                 feature.calculate_rice()
             else:
-                feature.rice_score = 0  
-                flash(f'⚠️ Điểm RICE được đưa về 0 do Confidence thấp hơn 50%', 'warning')
-                
+                feature.rice_score = 0
+                flash(
+                    '⚠️ Điểm RICE được đưa về 0 do Confidence thấp hơn 50%',
+                    'warning'
+                )
+
             feature.status = 'backlog'
+
         except ValueError:
             flash('Giá trị điều chỉnh không hợp lệ', 'danger')
             return redirect(url_for('backlog'))
+
     else:
         feature.status = decision
 
-        # SỬA LẠI ĐOẠN CUỐI HÀM FEATURE_DECISION:
     feature.decision_reason = reason
     
     linked = FeatureFeedback.query.filter_by(feature_id=feature.id).all()
@@ -771,39 +784,62 @@ Yêu cầu cấu trúc phản hồi bằng tiếng Việt:
 @app.route('/api/conflict-detector')
 @login_required
 def conflict_detector():
-    """US25: Thuật toán rà soát tự động phát hiện các điểm số bất thường hoặc xung đột lợi ích giữa các tính năng"""
     features = Feature.query.filter_by(status='backlog').all()
     warnings = []
-    squad_map = {f.id: (FeatureSquad.query.filter_by(feature_id=f.id).first().squad if FeatureSquad.query.filter_by(feature_id=f.id).first() else 'Unassigned') for f in features}
-    seen_names = {}
+
     for f in features:
-        key = normalize_text(f.name)
-        seen_names.setdefault(key, []).append(f)
-        # Kiểm tra số lượng feedback thực tế liên quan đến tên tính năng
-        feedback_count = Feedback.query.filter(Feedback.topic.ilike(f'%{f.name[:10]}%')).count()
-        
-        # Lỗi 1: Thổi phồng độ tự tin (Chấm Confidence cực cao nhưng không có bằng chứng dữ liệu thô)
+
+        # ==========================================================
+        # ƯU TIÊN FEEDBACK ĐƯỢC LIÊN KẾT THẬT
+        # ==========================================================
+        linked_feedback_count = FeatureFeedback.query.filter_by(
+            feature_id=f.id
+        ).count()
+
+        # Nếu Feature có Feedback liên kết thật,
+        # dùng số lượng này làm nguồn dữ liệu chính.
+        if linked_feedback_count > 0:
+            feedback_count = linked_feedback_count
+
+        # Nếu chưa có liên kết FeatureFeedback,
+        # mới dùng cách fallback theo topic/name.
+        else:
+            feedback_count = Feedback.query.filter(
+                Feedback.topic.ilike(f'%{f.name[:10]}%')
+            ).count()
+
+        # ==========================================================
+        # CẢNH BÁO 1:
+        # Confidence cao nhưng không có Feedback làm căn cứ
+        # ==========================================================
         if f.confidence >= 80 and feedback_count == 0:
             warnings.append({
                 'feature_id': f.id,
                 'feature_name': f.name,
                 'type': 'danger',
-                'message': f'⚠️ Phát hiện thổi phồng dữ liệu: Độ tự tin chấm {f.confidence}% nhưng hệ thống không tìm thấy bất kỳ phản hồi người dùng nào liên quan để làm căn cứ.'
+                'message': (
+                    f'⚠️ Phát hiện thiếu căn cứ dữ liệu: '
+                    f'Confidence đang ở mức {f.confidence}% '
+                    f'nhưng hệ thống không tìm thấy Feedback liên kết '
+                    f'với tính năng này.'
+                )
             })
-            
-        # Lỗi 2: Tính năng quá nặng (Effort > 8 tuần) nhưng điểm Impact quá thấp (< 2)
+
+        # ==========================================================
+        # CẢNH BÁO 2:
+        # Effort cao nhưng Impact thấp
+        # ==========================================================
         if f.effort > 8 and f.impact <= 2:
             warnings.append({
                 'feature_id': f.id,
                 'feature_name': f.name,
                 'type': 'warning',
-                'message': f'⚠️ Cảnh báo lãng phí nguồn lực: Tính năng tốn tới {f.effort} tuần phát triển nhưng hiệu quả cải thiện trải nghiệm (Impact) chỉ đạt {f.impact}/5.'
+                'message': (
+                    f'⚠️ Cảnh báo lãng phí nguồn lực: '
+                    f'Tính năng tốn tới {f.effort} tuần phát triển '
+                    f'nhưng Impact chỉ đạt {f.impact}/5.'
+                )
             })
-            
-    for key, same_features in seen_names.items():
-        squads = {squad_map[f.id] for f in same_features}
-        if len(squads) > 1:
-            warnings.append({'feature_id': same_features[0].id, 'feature_name': same_features[0].name, 'type': 'squad', 'message': f'⚠️ Xung đột ưu tiên: cùng một Feature Candidate đang xuất hiện ở nhiều squad ({", ".join(sorted(squads))}).'})
 
     return jsonify({
         'status': 'ok',
