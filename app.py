@@ -373,36 +373,45 @@ def feature_from_topic():
 
 # ─── BACKLOG (QUẢN LÝ TÍNH NĂNG & ĐIỂM RICE) ──────────────────────────────────
 @app.route('/backlog')
-@login_required 
+@login_required
 def backlog():
     status_filter = request.args.get('status', 'backlog')
-    
-    # ─── ĐÂY LÀ DÒNG QUAN TRỌNG BỊ THIẾU HOẶC SAI TÊN BIẾN ───
-    # Lấy danh sách tính năng theo bộ lọc trạng thái và áp dụng quy tắc BR6 (Xếp hạng đa tầng)
+
     features = Feature.query.filter_by(status=status_filter)\
-        .order_by(Feature.rice_score.desc(), Feature.effort.asc(), Feature.confidence.desc()).all()
-        
+        .order_by(
+            Feature.rice_score.desc(),
+            Feature.effort.asc(),
+            Feature.confidence.desc()
+        ).all()
+
     all_status_count = {
         'backlog': Feature.query.filter_by(status='backlog').count(),
         'approved': Feature.query.filter_by(status='approved').count(),
         'rejected': Feature.query.filter_by(status='rejected').count(),
-        'in_progress': Feature.query.filter_by(status='in_progress').count(),
-        'done': Feature.query.filter_by(status='done').count(),
     }
-    squad_map = {}
-    for f in features:
-        assignment = FeatureSquad.query.filter_by(feature_id=f.id).first()
-        squad_map[f.id] = assignment.squad if assignment else 'Core'
-    feedback_counts = {
-        f.id: Feedback.query.filter(Feedback.topic == f.name).count()
-        for f in features
-    }
-    return render_template('backlog.html',
+
+    # Lấy toàn bộ Feedback để cho phép PO liên kết Feedback thật với Feature
+    feedbacks = Feedback.query.order_by(Feedback.created_at.desc()).all()
+
+    # Lấy danh sách Feedback đã liên kết theo từng Feature
+    feature_feedback_ids = {}
+
+    for feature in features:
+        feature_feedback_ids[feature.id] = {
+            row.feedback_id
+            for row in FeatureFeedback.query.filter_by(
+                feature_id=feature.id
+            ).all()
+        }
+
+    return render_template(
+        'backlog.html',
         features=features,
         status_filter=status_filter,
         all_status_count=all_status_count,
-        feedback_counts=feedback_counts,
-        squad_map=squad_map)
+        feedbacks=feedbacks,
+        feature_feedback_ids=feature_feedback_ids
+    )
 
 @app.route('/feature/add', methods=['POST'])
 @role_required('squad_po', 'head_of_product')
@@ -450,6 +459,47 @@ def add_feature():
         flash(f'⚠️ Tính năng "{name}" được thêm nhưng chưa tính điểm vì Confidence < 50%. Thu thập thêm phản hồi rồi cập nhật lại.', 'warning')
     else:
         flash(f'✅ Đã thêm tính năng "{name}" với điểm RICE: {feature.rice_score}', 'success')
+
+    return redirect(url_for('backlog'))
+
+@app.route('/feature/<int:id>/link-feedback', methods=['POST'])
+@login_required
+def link_feature_feedback(id):
+    feature = Feature.query.get_or_404(id)
+
+    selected_feedback_ids = request.form.getlist('feedback_ids')
+
+    try:
+        selected_feedback_ids = [
+            int(feedback_id)
+            for feedback_id in selected_feedback_ids
+        ]
+    except ValueError:
+        flash('Danh sách Feedback không hợp lệ', 'danger')
+        return redirect(url_for('backlog'))
+
+    # Xóa toàn bộ liên kết cũ của Feature
+    FeatureFeedback.query.filter_by(
+        feature_id=feature.id
+    ).delete()
+
+    # Tạo lại liên kết theo các Feedback được chọn
+    for feedback_id in selected_feedback_ids:
+        feedback = Feedback.query.get(feedback_id)
+
+        if feedback:
+            link = FeatureFeedback(
+                feature_id=feature.id,
+                feedback_id=feedback.id
+            )
+            db.session.add(link)
+
+    db.session.commit()
+
+    flash(
+        f'Đã liên kết {len(selected_feedback_ids)} Feedback với tính năng "{feature.name}"',
+        'success'
+    )
 
     return redirect(url_for('backlog'))
 
