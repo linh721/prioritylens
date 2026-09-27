@@ -215,71 +215,224 @@ def add_feedback():
 @app.route('/feedback/analyze', methods=['POST'])
 @role_required('squad_po', 'head_of_product')
 def analyze_feedback():
-    feedbacks = Feedback.query.filter_by(sentiment=None).all()
+    # Lấy toàn bộ feedback chưa được AI phân tích
+    feedbacks = (
+        Feedback.query
+        .filter_by(sentiment=None)
+        .order_by(Feedback.id.asc())
+        .all()
+    )
 
     if not feedbacks:
-        return jsonify({'status': 'ok', 'message': 'Không có phản hồi mới cần phân tích'})
+        return jsonify({
+            'status': 'ok',
+            'message': 'Không có phản hồi mới cần phân tích'
+        })
 
-    analyzed = 0
-    errors = 0
+    # Lấy các topic đã tồn tại để AI ưu tiên dùng lại
+    existing_topics = [
+        topic.strip()
+        for (topic,) in (
+            db.session.query(Feedback.topic)
+            .filter(
+                Feedback.topic.isnot(None),
+                Feedback.topic != ''
+            )
+            .distinct()
+            .all()
+        )
+        if topic and topic.strip()
+    ]
 
-    for fb in feedbacks:
-        try:
-            prompt = f"""Phân tích phản hồi sau của người dùng ứng dụng MoMo. Hãy gán phản hồi vào một nhóm chủ đề (Feature Candidate) có tên ngắn, ổn định và mô tả ngắn. Đồng thời gán cảm xúc.
+    existing_topics = list(dict.fromkeys(existing_topics))
 
-Phản hồi: {fb.content}
+    feedback_text = "\n".join(
+        f'ID {fb.id}: {fb.content}'
+        for fb in feedbacks
+    )
 
-Chỉ trả về JSON:
-{{
-  \"sentiment\": \"positive\" hoặc \"negative\" hoặc \"neutral\",
-  \"cluster_name\": \"tên nhóm chủ đề 3-7 từ\",
-  \"cluster_description\": \"mô tả ngắn nhóm\"
-}}"""
+    existing_topic_text = (
+        "\n".join(f'- {topic}' for topic in existing_topics)
+        if existing_topics
+        else '- Chưa có nhóm chủ đề nào'
+    )
 
-            chat = client.chats.create(model="gemini-3.6-flash")
-            response = chat.send_message(prompt)
-            text = response.text.strip()
+    prompt = f"""
+Bạn là AI chuyên phân tích phản hồi sản phẩm.
 
-            if '```' in text:
-                blocks = text.split('```')
-                for block in blocks:
-                    cleaned = block.strip()
-                    if cleaned.startswith('json'):
-                        cleaned = cleaned[4:].strip()
-                    if cleaned.startswith('{') and cleaned.endswith('}'):
-                        text = cleaned
-                        break
+Hãy phân tích TOÀN BỘ các phản hồi dưới đây trong MỘT LẦN.
 
-            result = json.loads(text.strip())
-            sentiment = result.get('sentiment', 'neutral')
-            if sentiment not in {'positive', 'negative', 'neutral'}:
+QUY TẮC GOM NHÓM:
+
+1. Nếu phản hồi mới có cùng vấn đề, cùng nhu cầu hoặc cùng tính năng
+   với một nhóm chủ đề đã tồn tại thì PHẢI dùng lại chính xác tên nhóm đó.
+
+2. Không tạo nhóm mới chỉ vì cách diễn đạt khác nhau.
+
+3. Ví dụ:
+   - "Báo cáo doanh thu khó xem"
+   - "Báo cáo doanh thu khó xem quá"
+   - "Xem báo cáo doanh thu rất khó"
+
+   phải được gom vào cùng một nhóm chủ đề.
+
+4. Nếu sử dụng nhóm đã tồn tại thì phải giữ NGUYÊN tên nhóm.
+
+5. Chỉ tạo cluster_name mới khi không có nhóm hiện tại nào phù hợp.
+
+6. cluster_name phải ngắn gọn, mô tả vấn đề hoặc nhu cầu sản phẩm.
+
+7. Mỗi ID phải xuất hiện ĐÚNG MỘT LẦN trong kết quả.
+
+CÁC NHÓM CHỦ ĐỀ ĐÃ TỒN TẠI:
+{existing_topic_text}
+
+CÁC PHẢN HỒI CẦN PHÂN TÍCH:
+{feedback_text}
+
+Chỉ trả về JSON hợp lệ theo dạng:
+
+[
+  {{
+    "id": 123,
+    "sentiment": "positive",
+    "cluster_name": "Tên nhóm chủ đề"
+  }},
+  {{
+    "id": 124,
+    "sentiment": "negative",
+    "cluster_name": "Tên nhóm chủ đề"
+  }}
+]
+
+Trong đó sentiment chỉ được là:
+"positive", "negative", hoặc "neutral".
+"""
+
+    try:
+        # Chỉ gọi Gemini MỘT LẦN cho toàn bộ batch
+        chat = client.chats.create(model="gemini-3.6-flash")
+        response = chat.send_message(prompt)
+
+        text = (response.text or '').strip()
+
+        # Xử lý trường hợp Gemini trả JSON trong ```json ... ```
+        if '```' in text:
+            blocks = text.split('```')
+
+            for block in blocks:
+                cleaned = block.strip()
+
+                if cleaned.startswith('json'):
+                    cleaned = cleaned[4:].strip()
+
+                if cleaned.startswith('[') and cleaned.endswith(']'):
+                    text = cleaned
+                    break
+
+        result = json.loads(text)
+
+        # Cho phép cả dạng list trực tiếp hoặc {"results": [...]}
+        if isinstance(result, dict):
+            result = result.get('results', [])
+
+        if not isinstance(result, list):
+            raise ValueError('AI không trả về danh sách JSON hợp lệ.')
+
+        # Map feedback theo ID
+        feedback_map = {
+            fb.id: fb
+            for fb in feedbacks
+        }
+
+        analyzed = 0
+        skipped = 0
+
+        # Map topic hiện tại để giữ nguyên cách viết
+        existing_topic_map = {
+            topic.lower(): topic
+            for topic in existing_topics
+        }
+
+        for item in result:
+            try:
+                fb_id = int(item.get('id'))
+            except (TypeError, ValueError):
+                skipped += 1
+                continue
+
+            fb = feedback_map.get(fb_id)
+
+            if not fb:
+                skipped += 1
+                continue
+
+            sentiment = item.get('sentiment', 'neutral')
+
+            if sentiment not in {
+                'positive',
+                'negative',
+                'neutral'
+            }:
                 sentiment = 'neutral'
-            cluster_name = (result.get('cluster_name') or result.get('topic') or 'Chưa phân loại').strip()
+
+            cluster_name = (
+                item.get('cluster_name')
+                or 'Chưa phân loại'
+            ).strip()
+
+            # Nếu AI chọn topic đã tồn tại nhưng khác hoa/thường
+            # thì dùng lại đúng tên cũ
+            matched_topic = existing_topic_map.get(
+                cluster_name.lower()
+            )
+
+            if matched_topic:
+                cluster_name = matched_topic
+
             fb.sentiment = sentiment
             fb.topic = cluster_name
+
+            # Thêm topic mới vào danh sách để các lần chạy sau có thể tái sử dụng
+            if cluster_name.lower() not in existing_topic_map:
+                existing_topic_map[cluster_name.lower()] = cluster_name
+                existing_topics.append(cluster_name)
+
             analyzed += 1
 
-        except Exception:
-            # Không ghi đè dữ liệu bằng kết quả giả khi Gemini lỗi; để sentiment=None
-            # để lần chạy sau có thể retry đúng theo NFR3.
-            errors += 1
+        # Lưu toàn bộ kết quả sau khi xử lý
+        db.session.commit()
 
-    db.session.commit()
-    return jsonify({
-        'status': 'ok',
-        'message': f'Đã phân tích {analyzed} phản hồi, gom nhóm theo chủ đề. Lỗi: {errors}'
-    })
+        errors = len(feedbacks) - analyzed
 
+        return jsonify({
+            'status': 'ok',
+            'message': (
+                f'Đã phân tích {analyzed}/{len(feedbacks)} phản hồi. '
+                f'Còn lỗi/bỏ qua: {errors}.'
+            )
+        })
 
-@app.route('/feedback/delete/<int:id>', methods=['POST'])
-@role_required('squad_po', 'head_of_product')
-def delete_feedback(id):
-    fb = Feedback.query.get_or_404(id)
-    db.session.delete(fb)
-    db.session.commit()
-    flash('Đã xóa phản hồi', 'info')
-    return redirect(url_for('feedback_list'))
+    except Exception as e:
+        db.session.rollback()
 
+        error_text = str(e)
+
+        if '429' in error_text or 'RESOURCE_EXHAUSTED' in error_text:
+            return jsonify({
+                'status': 'error',
+                'message': (
+                    '⚠️ Gemini API đã hết quota hiện tại. '
+                    'Vui lòng chờ quota reset hoặc kiểm tra '
+                    'Rate Limits/Billing của Gemini.'
+                )
+            }), 429
+
+        return jsonify({
+            'status': 'error',
+            'message': f'AI phân tích thất bại: {error_text}'
+        }), 500
+    
 @app.route('/feedback/import', methods=['POST'])
 @role_required('squad_po', 'head_of_product')
 def import_feedback():
@@ -353,17 +506,30 @@ def feature_from_topic():
         return redirect(url_for('feedback_list'))
 
     recent_cutoff = datetime.utcnow() - timedelta(days=30)
-    recent_unique = {normalize_text(f.content) for f in related if f.created_at and f.created_at >= recent_cutoff}
+
+# Reach = số Feedback duy nhất trong 30 ngày gần nhất
+    recent_unique = {
+    normalize_text(f.content)
+    for f in related
+    if f.created_at and f.created_at >= recent_cutoff
+}
+
     reach = len(recent_unique)
+
     feature = Feature(
-        name=topic,
-        description=f'Feature Candidate từ nhóm phản hồi "{topic}". Reach gợi ý 30 ngày = {reach}.',
-        reach=reach,
-        impact=3,
-        confidence=50,
-        effort=1
-    )
-    feature.rice_score = 0
+    name=topic,
+    description=(
+        f'Feature Candidate từ nhóm phản hồi "{topic}". '
+        f'Reach gợi ý 30 ngày = {reach}.'
+    ),
+    reach=reach,
+    impact=3,
+    confidence=50,
+    effort=1
+)
+
+# Confidence = 50 nên được tính RICE ngay khi tạo
+    feature.calculate_rice()
     db.session.add(feature)
     db.session.flush()
     for fb in related:
@@ -380,23 +546,86 @@ def feature_from_topic():
 def backlog():
     status_filter = request.args.get('status', 'backlog')
 
-    features = Feature.query.filter_by(status=status_filter)\
-        .order_by(
-            Feature.rice_score.desc(),
-            Feature.effort.asc(),
-            Feature.confidence.desc()
+    if status_filter == 'approved':
+        # Tab "Đã phê duyệt" giữ toàn bộ feature
+        # đã được duyệt và đang triển khai/đã hoàn thành.
+        features = Feature.query.filter(
+            Feature.status.in_([
+                'approved',
+                'in_progress',
+                'done'
+            ])
         ).all()
+    else:
+        features = Feature.query.filter_by(
+            status=status_filter
+        ).all()
+
+    # ==========================================================
+    # CẬP NHẬT REACH THEO FEEDBACK MỚI NHẤT
+    # ==========================================================
+    for feature in features:
+
+        linked_feedbacks = (
+            Feedback.query
+            .join(
+                FeatureFeedback,
+                FeatureFeedback.feedback_id == Feedback.id
+            )
+            .filter(
+                FeatureFeedback.feature_id == feature.id
+            )
+            .all()
+        )
+
+        if linked_feedbacks:
+
+            recent_cutoff = datetime.utcnow() - timedelta(days=30)
+
+            recent_unique = {
+                normalize_text(f.content)
+                for f in linked_feedbacks
+                if f.created_at and f.created_at >= recent_cutoff
+            }
+
+            feature.reach = len(recent_unique)
+
+            if feature.confidence >= 50:
+                feature.calculate_rice()
+            else:
+                feature.rice_score = 0
+
+    db.session.commit()
+
+    # ==========================================================
+    # SAU KHI CẬP NHẬT RICE MỚI SẮP XẾP
+    # ==========================================================
+    features.sort(
+        key=lambda f: (
+            -(f.rice_score or 0),
+            f.effort or 0,
+            -(f.confidence or 0)
+        )
+    )
 
     all_status_count = {
         'backlog': Feature.query.filter_by(status='backlog').count(),
-        'approved': Feature.query.filter_by(status='approved').count(),
+
+        'approved': Feature.query.filter(
+            Feature.status.in_([
+                'approved',
+                'in_progress',
+                'done'
+            ])
+        ).count(),
+
         'rejected': Feature.query.filter_by(status='rejected').count(),
     }
 
-    # Lấy toàn bộ Feedback để cho phép PO liên kết Feedback thật với Feature
-    feedbacks = Feedback.query.order_by(Feedback.created_at.desc()).all()
+    feedbacks = Feedback.query.order_by(
+        Feedback.created_at.desc()
+    ).all()
 
-    # Lấy danh sách Feedback đã liên kết theo từng Feature
     feature_feedback_ids = {}
 
     for feature in features:
@@ -560,6 +789,15 @@ def feature_decision(id):
             return redirect(url_for('backlog'))
 
     else:
+        # BR3: Confidence < 50% thì không được phê duyệt
+        if decision == 'approved' and feature.confidence < 50:
+            flash(
+                '❌ Không thể phê duyệt Feature khi Confidence thấp hơn 50%. '
+                'Vui lòng tăng Confidence lên ít nhất 50%.',
+                'danger'
+            )
+            return redirect(url_for('backlog'))
+
         feature.status = decision
 
     feature.decision_reason = reason
@@ -1046,8 +1284,8 @@ def export_backlog_csv():
     # Ghi dữ liệu
     for f in features:
         cw.writerow([f.id, f.name, f.description, f.reach, f.impact, f.confidence, f.effort, f.rice_score, f.status])
-        
-    output = make_response(si.getvalue())
+
+    output = make_response('\ufeff' + si.getvalue())
     output.headers["Content-Disposition"] = "attachment; filename=sprint_backlog_roadmap.csv"
     output.headers["Content-type"] = "text/csv; charset=utf-8"
     return output
