@@ -432,6 +432,37 @@ Trong đó sentiment chỉ được là:
             'status': 'error',
             'message': f'AI phân tích thất bại: {error_text}'
         }), 500
+
+@app.route('/feedback/delete/<int:id>', methods=['POST'])
+@role_required('squad_po', 'head_of_product')
+def delete_feedback(id):
+    feedback = Feedback.query.get_or_404(id)
+
+    # Xóa các liên kết Feedback - Feature trước
+    FeatureFeedback.query.filter_by(feedback_id=id).delete(
+        synchronize_session=False
+    )
+
+    # Lưu thông tin để ghi log
+    feedback_content = feedback.content[:80]
+
+    # Xóa Feedback
+    db.session.delete(feedback)
+
+    # Ghi BehaviorLog
+    db.session.add(
+        BehaviorLog(
+            event_type='delete_feedback',
+            page='/feedback',
+            element=f'Feedback: {feedback_content}'[:100],
+            user_type=current_user.role
+        )
+    )
+
+    db.session.commit()
+
+    flash('Đã xóa phản hồi thành công.', 'success')
+    return redirect(url_for('feedback_list'))
     
 @app.route('/feedback/import', methods=['POST'])
 @role_required('squad_po', 'head_of_product')
