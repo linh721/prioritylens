@@ -1162,7 +1162,7 @@
                         <input type="checkbox"
                                name="feedback_ids"
                                value="{{ fb.id }}"
-                               {% if fb.id in feature_feedback_ids.get(feature.id, set()) %}
+                               {% if fb.id in feature_feedback_ids.get(feature.id, []) %}
                                checked
                                {% endif %}
                                style="margin-right:8px;">
