@@ -4,6 +4,7 @@ import csv
 import io
 import re
 import unicodedata
+import pytz
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, make_response
@@ -79,7 +80,8 @@ def topic_cluster_stats(feedbacks):
     """Nhóm các phản hồi theo topic AI và tính Reach gợi ý 30 ngày.
     Dùng topic hiện có làm khóa nhóm để không cần thay đổi schema DB hiện tại.
     """
-    cutoff = datetime.utcnow() - timedelta(days=30)
+    tz = pytz.timezone('Asia/Ho_Chi_Minh')
+    cutoff = datetime.now(tz).replace(tzinfo=None) - timedelta(days=30)
     groups = {}
     for fb in feedbacks:
         topic = (fb.topic or 'Chưa phân loại').strip()
@@ -198,7 +200,8 @@ def add_feedback():
         flash('Phản hồi trùng nội dung đã tồn tại; hệ thống không tạo bản ghi mới.', 'warning')
         return redirect(url_for('feedback_list'))
 
-    created_at = parse_import_date(date_value) if date_value else datetime.utcnow()
+    tz = pytz.timezone('Asia/Ho_Chi_Minh')
+    created_at = parse_import_date(date_value) if date_value else datetime.now(tz).replace(tzinfo=None)
     if date_value and created_at is None:
         flash('Ngày phản hồi không hợp lệ.', 'danger')
         return redirect(url_for('feedback_list'))
@@ -581,11 +584,11 @@ def feature_decision(id):
 
     # US22: ghi lại telemetry + snapshot.
     log_entry = BehaviorLog(
-        event_type=decision,
-        page='/backlog',
-        element=f"Feature: {feature.name} | Before: {old_snapshot} | After: {new_snapshot} | Feedback IDs: {related_ids} | Lý do: {reason}",
-        user_type=current_user.role
-    )
+    event_type=decision,
+    page='/backlog',
+    element=f"Feature: {feature.name} | Before: {old_snapshot} | After: {new_snapshot} | Feedback IDs: {related_ids} | Lý do: {reason}"[:100],
+    user_type=current_user.role)
+    
     db.session.add(log_entry)
     db.session.commit()
 
@@ -707,7 +710,11 @@ def import_external_feedback():
         if key in existing:
             duplicates += 1; continue
         date_value = (row.get('date') or row.get('ngay') or '').strip()
-        created_at = parse_import_date(date_value) if date_value else datetime.utcnow()
+        
+        tz = pytz.timezone('Asia/Ho_Chi_Minh')
+        created_at = parse_import_date(date_value) if date_value else datetime.now(tz).replace(tzinfo=None)
+
+
         if date_value and created_at is None:
             invalid += 1; continue
         db.session.add(Feedback(content=content, source=source, created_at=created_at))
