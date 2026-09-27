@@ -3,4 +3,5 @@ venv/
 *.pyc
 __pycache__/
 instance/
-*.db
+*.dbcookies.txt
+cookies.txt

@@ -1,0 +1,8 @@
+event_type,page,element
+page_view,/merchant/dashboard,Dashboard chính
+click,/merchant/dashboard,Nút Xem báo cáo doanh thu
+page_view,/merchant/qr,Màn hình tạo mã QR
+click,/merchant/qr,Nút Tạo mã QR mới
+session_exit,/merchant/qr,Thoát giữa chừng khi QR load chậm
+page_view,/merchant/support,Trang gửi ticket hỗ trợ
+click,/merchant/support,Nút Gửi yêu cầu hỗ trợ

@@ -311,7 +311,7 @@ Trong đó sentiment chỉ được là:
 
     try:
         # Chỉ gọi Gemini MỘT LẦN cho toàn bộ batch
-        chat = client.chats.create(model="gemini-3.6-flash")
+        chat = client.chats.create(model="gemini-3.5-flash-lite")
         response = chat.send_message(prompt)
 
         text = (response.text or '').strip()
@@ -418,6 +418,18 @@ Trong đó sentiment chỉ được là:
 
         error_text = str(e)
 
+        # Gemini tạm thời quá tải / unavailable
+        if '503' in error_text or 'UNAVAILABLE' in error_text:
+            return jsonify({
+                'status': 'error',
+                'message': (
+                    '⚠️ Gemini đang tạm thời quá tải hoặc không khả dụng. '
+                    'Dữ liệu Feedback vẫn được giữ nguyên. '
+                    'Vui lòng thử lại sau ít phút.'
+                )
+            }), 503
+
+        # Gemini hết quota
         if '429' in error_text or 'RESOURCE_EXHAUSTED' in error_text:
             return jsonify({
                 'status': 'error',
@@ -428,6 +440,7 @@ Trong đó sentiment chỉ được là:
                 )
             }), 429
 
+        # Các lỗi khác
         return jsonify({
             'status': 'error',
             'message': f'AI phân tích thất bại: {error_text}'
