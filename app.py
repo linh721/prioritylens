@@ -1296,9 +1296,9 @@ def get_rice_guidelines():
     """US15: Trả về hướng dẫn định nghĩa khung chấm điểm RICE theo tiêu chuẩn MoMo"""
     return jsonify({
         'reach': 'Reach: Số lượng người dùng (Merchant/Khách hàng) bị ảnh hưởng bởi tính năng này trong vòng 30 ngày.',
-        'impact': 'Impact: Thang đo từ 1-5 (5: Cực kỳ quan trọng, 3: Cao, 2: Vừa, 1: Thấp) về mức độ cải thiện trải nghiệm.',
-        'confidence': 'Confidence: Độ tự tin của ước tính (%). Nếu dưới 50%, hệ thống sẽ tự động khóa tính điểm để yêu cầu lấy thêm feedback.',
-        'effort': 'Effort: Số tuần làm việc (Người-Tuần) cần thiết để thiết kế, phát triển và hoàn thiện tính năng.'
+        'impact': 'Impact: Thang đo từ 1-5 (5 = chặn hoàn toàn giao dịch/thanh toán của người dùng (ví dụ lỗi QR không quét được); 4 = ảnh hưởng trực tiếp doanh thu hoặc dòng tiền (ví dụ chậm đối soát); 3 = gây phiền hà rõ rệt trong vận hành hằng ngày nhưng có cách né tạm; 2 = cải thiện trải nghiệm, không chặn công việc; 1 = mong muốn nhỏ, không ảnh hưởng vận hành) về mức độ cải thiện trải nghiệm.',
+        'confidence': 'Confidence: Độ tự tin của ước tính (%). Nếu dưới 50%, hệ thống sẽ tự động khóa tính điểm để yêu cầu lấy thêm feedback. 90% = đã có ≥ 20 phản hồi cùng chủ đề trong 30 ngày, mô tả nhất quán; 70% = có phản hồi nhưng số lượng ít hoặc mô tả chưa thống nhất; 50% = chỉ 1 đến 2 phản hồi hoặc suy đoán từ log hành vi, chưa có phản hồi trực tiếp bằng lời',
+        'effort': 'Effort: Số tuần làm việc (Người-Tuần) cần thiết để thiết kế, phát triển và hoàn thiện tính năng. Cần xác nhận cùng Engineering trước khi nhập.'
     })
 
 
